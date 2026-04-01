@@ -45,7 +45,7 @@ DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
 DEEPSEEK_MODEL = "deepseek-chat"   # hoặc "deepseek-reasoner"
 
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:4b")   # gemma3:4b (~3GB) | gemma3:12b (~8GB) | qwen2.5:7b
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:12b")   # gemma3:12b (~8GB) | gemma3:4b (~3GB) | qwen2.5:7b
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_MODEL = "llama-3.3-70b-versatile"
