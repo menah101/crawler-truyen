@@ -32,14 +32,14 @@ REQUEST_DELAY = 1.5
 
 # === Rewriter ===
 REWRITE_ENABLED = True
-REWRITE_PROVIDER = "groq"    # "anthropic" | "gemini" | "deepseek" | "groq" | "ollama" | "local"
+REWRITE_PROVIDER = "gemini"    # "anthropic" | "gemini" | "deepseek" | "groq" | "ollama" | "local"
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = "gemini-2.5-flash"
-GEMINI_FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"]
+GEMINI_MODEL = "gemini-2.5-flash-lite"
+GEMINI_FALLBACK_MODELS = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-3.1-flash-lite"]
 
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
 DEEPSEEK_MODEL = "deepseek-chat"   # hoặc "deepseek-reasoner"
@@ -52,8 +52,8 @@ GROQ_MODEL = "llama-3.3-70b-versatile"
 # Fallback models khi bị rate limit (theo thứ tự ưu tiên)
 GROQ_FALLBACK_MODELS = [
     "llama-3.3-70b-versatile",   # 12k TPM free
-    "llama-3.1-8b-instant",      # 20k TPM free (thay thế llama3-8b-8192 đã bị xóa)
-    "gemma2-9b-it",              # 15k TPM free
+    "llama-3.1-8b-instant",      # 20k TPM free
+    "llama3-70b-8192",           # fallback thêm
 ]
 
 REWRITE_CHUNK_SIZE = 1500   # Groq free tier: ~12k TPM — chunk nhỏ hơn tránh rate limit
