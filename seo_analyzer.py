@@ -230,6 +230,24 @@ def _call_ai(prompt: str) -> str | None:
             if resp.status_code == 200:
                 return resp.json()["choices"][0]["message"]["content"].strip()
 
+        if provider == 'huggingface':
+            from config import HF_API_TOKEN, HF_REWRITE_MODEL, HF_REWRITE_FALLBACK_MODELS
+            if HF_API_TOKEN:
+                models = [HF_REWRITE_MODEL] + [m for m in HF_REWRITE_FALLBACK_MODELS if m != HF_REWRITE_MODEL]
+                for model in models:
+                    resp = requests.post(
+                        "https://router.huggingface.co/together/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {HF_API_TOKEN}",
+                                 "Content-Type": "application/json"},
+                        json={"model": model, "max_tokens": 2048, "temperature": 0.7,
+                              "messages": [{"role": "user", "content": prompt}]},
+                        timeout=120,
+                    )
+                    if resp.status_code == 200:
+                        return resp.json()["choices"][0]["message"]["content"].strip()
+                    if resp.status_code != 429 and resp.status_code != 503:
+                        break
+
     except Exception as e:
         logger.error(f"SEO AI error: {e}")
 
