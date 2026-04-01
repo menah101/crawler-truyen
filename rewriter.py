@@ -288,7 +288,7 @@ def rewrite_huggingface(text, api_token, model):
     models = [model] + [m for m in HF_REWRITE_FALLBACK_MODELS if m != model]
 
     for m in models:
-        url = f"https://router.huggingface.co/hf-inference/models/{m}/v1/chat/completions"
+        url = f"https://router.huggingface.co/together/v1/chat/completions"
         try:
             resp = requests.post(
                 url,
@@ -562,7 +562,7 @@ def check_rewriter():
             return False, "HF_API_TOKEN chưa set"
         try:
             resp = requests.post(
-                f"https://router.huggingface.co/hf-inference/models/{HF_REWRITE_MODEL}/v1/chat/completions",
+                "https://router.huggingface.co/together/v1/chat/completions",
                 headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
                 json={"model": HF_REWRITE_MODEL, "max_tokens": 10,
                       "messages": [{"role": "user", "content": "Trả lời 'ok'."}]},
