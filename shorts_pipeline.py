@@ -174,6 +174,8 @@ def run_shorts_pipeline(
     output_dir: str,
     hf_token: str,
     ratio: str = "9:16",
+    era_override: str = "",
+    decade_override: str = "",
 ) -> dict:
     """
     Chạy toàn bộ pipeline: chapters → hook story + scenes + ảnh.
@@ -201,8 +203,8 @@ def run_shorts_pipeline(
     character      = result.get("character", {})
     character_desc = character.get("appearance", "")
     char_name      = character.get("name", "")
-    era            = character.get("era", "co-trang")
-    decade         = character.get("decade", "")
+    era            = era_override or character.get("era", "co-trang")
+    decade         = decade_override or character.get("decade", "")
 
     if not hook_story:
         logger.error("  ❌ Hook story trống — dừng pipeline")

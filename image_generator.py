@@ -514,114 +514,111 @@ _EMOTION_SHOT_OVERRIDE = {
 
 _BEAUTY_CHARS = {
     "co-trang": [
-        # ── Phong cách 1: Quý phi kiều diễm ──
-        "fashion model portrait, gorgeous Chinese empress, round porcelain face, dramatic red lip makeup, elaborate gold phoenix crown, crimson silk hanfu with gold dragon embroidery, regal confident gaze, studio-quality beauty shot",
-        # ── Phong cách 2: Tiểu thư u buồn ──
-        "fashion model portrait, melancholic young woman, oval face with tear-stained cheeks, smudged dark eye makeup, messy long black hair with loose jade hairpin, wrinkled white inner robe, raw emotional vulnerability",
-        # ── Phong cách 3: Nữ tướng lạnh lùng ──
-        "fashion model portrait, fierce female warrior, angular sharp jawline, no makeup bare face with battle scar on left cheek, hair pulled back tight in military braid, black leather armor with silver studs, intense predator eyes",
-        # ── Phong cách 4: Tiên nữ phiêu diêu ──
-        "fashion model portrait, ethereal celestial maiden, long narrow face, luminous pale silver eyes, flowing white-silver hair to waist, sheer white silk robes with cloud patterns, otherworldly serene expression, glowing aura",
-        # ── Phong cách 5: Thôn nữ tươi tắn ──
-        "fashion model portrait, cheerful village peasant girl, round chubby sun-tanned face with dimples, bright laughing eyes, messy braided pigtails with wildflowers, simple brown cotton dress, barefoot, natural countryside beauty",
-        # ── Phong cách 6: Hồ ly tinh quyến rũ ──
-        "fashion model portrait, seductive fox spirit, feline heart-shaped face, sharp upturned cat eyes with amber-gold irises, mischievous smirk, wild untamed red-tinted hair, dark purple silk robe, supernatural allure",
-        # ── Phong cách 7: Nữ hiệp giang hồ ──
-        "fashion model portrait, rugged swordswoman, square strong jawline, thick bold eyebrows, wind-swept short hair at chin length, tanned weathered skin, dark grey travel-worn robe with sword strap, fearless adventurer look",
-        # ── Phong cách 8: Cung nữ nhỏ nhắn ──
-        "fashion model portrait, petite palace maid, small delicate face, innocent wide doe eyes, soft pink blush on pale cheeks, neat low bun with single silver pin, pastel lavender servant hanfu, shy timid posture",
-        # ── Phong cách 9: Hoàng hậu uy nghiêm ──
-        "fashion model portrait, majestic mature empress, diamond-shaped face with high cheekbones, cold intimidating gaze, heavy elaborate updo with ruby and gold ornaments, dark midnight blue brocade hanfu, powerful commanding presence",
-        # ── Phong cách 10: Nữ thần y ──
-        "fashion model portrait, gentle healer woman, soft oval face with warm kind eyes, hair wrapped in white cloth headband, simple sage-green hemp robe, herbal medicine pouch on belt, compassionate wise expression",
-        # ── Phong cách 11: Sát thủ bí ẩn ──
-        "fashion model portrait, masked assassin woman, only piercing dark eyes visible above black silk face mask, sleek tight black outfit, hair completely hidden under hood, deadly cold calculating stare, shadows on face",
-        # ── Phong cách 12: Công chúa phản nghịch ──
-        "fashion model portrait, rebellious young princess, heart-shaped face with defiant smirk, bold dark eye makeup like war paint, half-shaved head with long flowing other side, torn royal hanfu repurposed as battle gear, punk warrior energy",
-        # ── Phong cách 13: Nữ học giả ──
-        "fashion model portrait, scholarly intellectual woman, refined rectangular face, thin wire reading glasses, ink stains on fingertips, neat tight bun with wooden hairpin, plain dark blue scholar robe, thoughtful analytical gaze",
-        # ── Phong cách 14: Vũ nữ cung đình ──
-        "fashion model portrait, graceful court dancer mid-performance, elongated elegant face, dramatic stage makeup with painted eyebrows, hair decorated with jingling bells and ribbons, flowing rainbow gradient silk sleeves, dynamic artistic pose",
-        # ── Phong cách 15: Trưởng môn phái ──
-        "fashion model portrait, dignified sect leader woman, strong broad face with stern expression, silver-streaked black hair in elaborate crown braid, ornate golden ceremonial armor over white robe, authoritative noble bearing, mature powerful beauty",
-        # ── Phong cách 16: Nàng thơ lãng mạn ──
-        "fashion model portrait, dreamy romantic poet woman, soft round face with gentle half-smile, loose flowing hair decorated with fresh peach blossoms, light pink translucent layered hanfu, holding a calligraphy brush, wistful distant gaze",
-        # ── Phong cách 17: Ma nữ đáng thương ──
-        "fashion model portrait, tragic ghost woman, gaunt pale face with hollow dark-circled eyes, long straight jet-black hair covering half face, torn faded white burial robe, single tear of blood on cheek, hauntingly beautiful",
-        # ── Phong cách 18: Nữ tặc hải đảo ──
-        "fashion model portrait, sun-bronzed pirate queen, angular weathered face, bold scar across nose bridge, wild windblown hair with gold coins braided in, open-collar rugged seafarer outfit, fearless crooked grin, ocean spray on skin",
-        # ── Phong cách 19: Tiểu ni cô ──
-        "fashion model portrait, young Buddhist nun, perfectly smooth shaved head, serene peaceful round face, no makeup natural clean skin, simple grey monk robe, prayer beads around neck, tranquil meditative expression",
-        # ── Phong cách 20: Nữ hoàng băng giá ──
-        "fashion model portrait, ice queen beauty, sharp sculpted face with glass-like pale skin, frost-white eyebrows and lashes, platinum silver hair in geometric crystal crown, metallic icy-blue hanfu with snowflake patterns, cold emotionless perfection",
+        # ── 20 cô gái cổ trang: mộng mơ, dịu dàng, mỗi người khác kiểu tóc/trang phục/biểu cảm ──
+        "dreamy beautiful girl, soft glowing porcelain skin, gentle shy smile, long flowing black hair with gold butterfly hairpin, crimson silk hanfu, warm golden light, romantic ethereal mood, soft focus bokeh",
+        "dreamy beautiful girl, dewy luminous skin, wistful teary doe eyes, hair in elegant high bun with dangling jade ornaments, white layered hanfu with pink gradient hem, misty moonlight atmosphere",
+        "dreamy beautiful girl, flawless ivory complexion, serene closed-eye expression, loose wavy hair draped over shoulder with fresh peach blossoms, light blush pink hanfu, cherry blossom petals floating, spring breeze mood",
+        "dreamy beautiful girl, radiant glass-like skin, curious bright eyes with long lashes, twin braids with red ribbon, mint green embroidered hanfu, morning sunlight through bamboo, fresh youthful innocence",
+        "dreamy beautiful girl, porcelain doll face, melancholic gentle gaze, straight hair with single white magnolia behind ear, lavender purple silk hanfu, soft rain outside window, poetic solitude",
+        "dreamy beautiful girl, warm honey-toned skin, playful dimpled smile, messy half-up hair with pearl chain headpiece, coral orange hanfu with gold trim, sunset glow on face, warm joyful energy",
+        "dreamy beautiful girl, pale moonlit complexion, mysterious half-smile, long silver-streaked hair flowing freely, midnight blue velvet hanfu with star embroidery, starlight reflections, mystical enchantment",
+        "dreamy beautiful girl, soft rosy cheeks, tender loving gaze downward, neat side-swept bangs with lotus flower crown, cream white ceremonial hanfu, candlelight warmth, gentle maternal grace",
+        "dreamy beautiful girl, luminous translucent skin, determined yet gentle eyes, windswept hair with sword-shaped hairpin, deep wine red warrior hanfu, dramatic cloud backdrop, elegant strength",
+        "dreamy beautiful girl, fresh dewy no-makeup look, bright surprised expression, loose natural wavy hair with wildflower wreath, sage green simple cotton hanfu, forest dappled sunlight, nature fairy vibe",
+        "dreamy beautiful girl, ethereal pale skin with slight blush, peaceful sleeping expression, hair spread on pillow with scattered petals, white silk inner robe, soft dawn light, tranquil dream state",
+        "dreamy beautiful girl, golden sun-kissed glow, confident graceful smile, elaborate phoenix updo with ruby pins, imperial gold and red brocade hanfu, grand hall golden light, regal elegance",
+        "dreamy beautiful girl, cool-toned porcelain complexion, contemplative distant gaze, straight hair in low ponytail with ice crystal pin, frost white and silver hanfu, snow falling softly, winter serenity",
+        "dreamy beautiful girl, warm amber-lit skin, shy blushing expression looking away, hair in two low buns with tassel ornaments, dusty rose embroidered hanfu, lantern festival lights, romantic shyness",
+        "dreamy beautiful girl, flawless dewy skin, tearful yet smiling bittersweet expression, windblown hair with loose falling hairpin, torn pale blue hanfu, autumn leaves swirling, beautiful melancholy",
+        "dreamy beautiful girl, luminous fairy-like glow, enchanted wide-eyed wonder, extra-long flowing hair past waist, sheer white celestial robes with cloud motifs, floating among clouds, otherworldly grace",
+        "dreamy beautiful girl, smooth warm complexion, mischievous playful wink, hair in high ponytail with fox-tail ornament, vivid tangerine orange hanfu, cherry blossom tree shade, lively charm",
+        "dreamy beautiful girl, delicate pale features, composed dignified expression, sleek center-parted hair with gold filigree crown, deep emerald green formal hanfu, throne room candles, noble poise",
+        "dreamy beautiful girl, natural sun-touched skin, carefree laughing with eyes closed, messy braided pigtails with daisies, light yellow cotton hanfu, open meadow breeze, pure happiness",
+        "dreamy beautiful girl, ethereal icy complexion, haunting sad beauty with single tear, straight jet-black hair over one eye, pure white mourning hanfu, moonlit garden mist, tragic elegance",
     ],
     "hien-dai": [
-        # ── Phong cách 1: Hot girl sang chảnh ──
-        "fashion model portrait, glamorous Vietnamese socialite, oval face with flawless glass skin, full red lips, sleek straight black hair, designer off-shoulder dress, diamond earrings, luxury confident aura",
-        # ── Phong cách 2: Cô gái mưa ──
-        "fashion model portrait, melancholic girl in rain, round face with wet hair plastered to cheeks, smudged mascara tears, oversized soaked trench coat, raw emotional vulnerability, moody blue tones",
-        # ── Phong cách 3: CEO quyền lực ──
-        "fashion model portrait, powerful businesswoman, sharp angular face with sculpted cheekbones, slicked-back hair in tight low bun, black power suit with sharp shoulders, minimal gold jewelry, intimidating corporate stare",
-        # ── Phong cách 4: Idol K-pop ──
-        "fashion model portrait, K-pop idol style, heart-shaped face, gradient coral lips, sparkly eye glitter makeup, pastel pink highlighted hair in loose waves, trendy oversized blazer, cute aegyo expression",
-        # ── Phong cách 5: Nghệ sĩ bohemian ──
-        "fashion model portrait, bohemian artist woman, soft features with paint-splattered freckled face, wild curly hair with dried flowers woven in, colorful oversized vintage cardigan, eclectic silver rings on every finger, free-spirited dreamy eyes",
-        # ── Phong cách 6: Tomboy cool ──
-        "fashion model portrait, androgynous tomboy, strong square jaw, zero makeup bare athletic face, undercut pixie haircut dyed ash grey, white tank top showing toned shoulders, silver chain necklace, confident smirk",
-        # ── Phong cách 7: Goth queen ──
-        "fashion model portrait, gothic dark queen, pale narrow face, dramatic black smoky eyes with dark lipstick, jet black hair with blunt bangs, black lace choker, velvet dark outfit, mysterious intense stare",
-        # ── Phong cách 8: Cô sinh viên ──
-        "fashion model portrait, fresh-faced college student, petite baby face with natural skin, minimal lip tint only, messy ponytail with loose strands, oversized university hoodie, round glasses, genuine bright innocent smile",
-        # ── Phong cách 9: Dancer đường phố ──
-        "fashion model portrait, street dancer woman, diamond-shaped face glistening with sweat, bold graphic eyeliner, hair in tight cornrow braids, crop top with baggy cargo pants, dynamic confident energy, urban gritty vibe",
-        # ── Phong cách 10: Nàng thơ vintage ──
-        "fashion model portrait, vintage-aesthetic woman, classic oval face, retro red lipstick and winged liner, finger-wave styled short hair, silk polka-dot blouse with high-waist skirt, pearl necklace, old Hollywood glamour",
-        # ── Phong cách 11: Biker girl ──
-        "fashion model portrait, motorcycle biker woman, angular tanned face with windburn, no makeup sun-weathered look, helmet-flattened messy hair, black leather jacket unzipped, reflective aviator sunglasses pushed up on forehead, rebellious attitude",
-        # ── Phong cách 12: Nữ bác sĩ ──
-        "fashion model portrait, elegant doctor woman, refined intelligent face, subtle natural makeup, neat professional bob haircut, white lab coat over silk blouse, stethoscope around neck, calm reassuring expression",
-        # ── Phong cách 13: DJ đêm ──
-        "fashion model portrait, nightclub DJ woman, striking face with neon-colored eyeshadow, glitter on cheekbones, half-shaved head with long neon-purple other side, chunky headphones around neck, holographic top, electric party energy",
-        # ── Phong cách 14: Cô giáo hiền ──
-        "fashion model portrait, warm teacher woman, round soft face with gentle smile lines, reading glasses on nose tip, hair in loose French braid, cream turtleneck sweater, holding stack of books, approachable maternal warmth",
-        # ── Phong cách 15: Người mẫu runway ──
-        "fashion model portrait, high-fashion runway model, elongated sculpted face with razor-sharp contour, dramatic avant-garde geometric eye makeup, slicked-wet hair pulled severely back, architectural couture outfit, fierce editorial model walk expression",
-        # ── Phong cách 16: Cô gái biển ──
-        "fashion model portrait, beach girl at golden hour, sun-kissed freckled face, salt-dried wavy hair, no makeup natural tan glow, white linen beach shirt, seashell necklace, relaxed carefree ocean-breeze smile",
-        # ── Phong cách 17: Hacker girl ──
-        "fashion model portrait, cyberpunk hacker girl, sharp face lit by blue screen glow, dark circles under intense focused eyes, messy unwashed bob haircut, oversized black hoodie, multiple monitor reflections in glasses, nocturnal tech genius vibe",
-        # ── Phong cách 18: Tiểu thư nhà giàu ──
-        "fashion model portrait, elegant heiress, diamond-shaped aristocratic face, perfectly groomed eyebrows, classic chignon updo, Chanel-style tweed jacket with brooch, white gloves, composed polished old-money sophistication",
-        # ── Phong cách 19: Võ sĩ MMA ──
-        "fashion model portrait, female MMA fighter, broad strong face with swollen bruised cheekbone, fierce determined eyes, hair in tight fight braids, athletic sports bra showing muscular shoulders, hand wraps, warrior intensity",
-        # ── Phong cách 20: Cô dâu ──
-        "fashion model portrait, radiant bride-to-be, soft glowing face with bridal makeup, happy tearful eyes, elegant low chignon with baby breath flowers, white lace wedding dress visible at neckline, pure joyful emotional beauty",
+        # ── 20 cô gái hiện đại: mộng mơ, dịu dàng, mỗi người khác phong cách ──
+        "dreamy beautiful girl, flawless glass skin, gentle smile with glossy lips, long straight black hair, elegant white blouse, soft natural window light, warm romantic atmosphere, soft focus bokeh",
+        "dreamy beautiful girl, dewy luminous skin, wistful gaze out rainy window, wavy hair in loose side braid, cozy cream knit sweater, café warm lighting, melancholic beauty",
+        "dreamy beautiful girl, radiant Korean-style makeup, bright aegyo smile, pastel pink bob haircut, oversized soft blazer, cherry blossom background, cute sweet energy",
+        "dreamy beautiful girl, natural no-makeup glow, shy dimpled smile, messy ponytail with loose strands, oversized university hoodie, golden hour campus light, fresh innocent charm",
+        "dreamy beautiful girl, porcelain skin with subtle blush, serene closed-eye expression, elegant low chignon with baby breath flowers, white lace dress, soft morning light, bridal ethereal mood",
+        "dreamy beautiful girl, warm honey skin tone, confident gentle gaze, sleek straight hair with middle part, tailored camel coat, autumn street golden leaves, sophisticated warmth",
+        "dreamy beautiful girl, cool-toned glass skin, mysterious half-smile, jet black hair with blunt bangs, black turtleneck, moody blue-hour city lights, chic understated elegance",
+        "dreamy beautiful girl, sun-kissed freckled face, carefree laughing expression, salt-wave beach hair, white linen shirt, golden sunset seaside, warm summer freedom",
+        "dreamy beautiful girl, luminous dewy complexion, thoughtful reading expression, hair in loose French twist with reading glasses, cream silk blouse, bookshop warm lamp light, intellectual grace",
+        "dreamy beautiful girl, soft rosy cheeks, playful tongue-out wink, twin space buns with ribbon, pastel rainbow cardigan, colorful flower market, youthful fun energy",
+        "dreamy beautiful girl, flawless matte skin, elegant side-glance, slicked-back wet-look hair, emerald green satin dress, champagne-toned ballroom light, glamorous sophistication",
+        "dreamy beautiful girl, natural warm glow, tender loving smile, loose curly hair with flower crown, flowing boho maxi dress, lavender field sunset, romantic free spirit",
+        "dreamy beautiful girl, clear bright complexion, surprised innocent wide eyes, short fluffy layered hair, denim jacket over white tee, blue sky rooftop, girl-next-door freshness",
+        "dreamy beautiful girl, pearly luminous skin, peaceful meditative expression, long straight hair center-parted, minimal white yoga outfit, zen garden morning mist, tranquil inner peace",
+        "dreamy beautiful girl, dewy highlighted cheekbones, excited happy grin, high ponytail with scrunchie, sporty pastel tracksuit, cherry blossom jogging path, energetic sweetness",
+        "dreamy beautiful girl, warm candlelit skin tone, tearful emotional smile, elegant updo with pearl pins, off-shoulder burgundy velvet dress, piano room soft lighting, bittersweet romance",
+        "dreamy beautiful girl, cool porcelain complexion, dreamy unfocused gaze, silver-tinted long hair, oversized vintage denim jacket, neon city rain reflections, cinematic night mood",
+        "dreamy beautiful girl, glowing golden skin, bright toothy smile, thick curly hair loose and voluminous, bright yellow sundress, sunflower field noon, radiant joy and warmth",
+        "dreamy beautiful girl, delicate pale features, composed polished expression, sleek bob haircut, Chanel-style tweed jacket with brooch, art gallery white walls, refined taste",
+        "dreamy beautiful girl, natural healthy glow, gentle caring expression, hair in messy bun with pencil through it, paint-stained apron, art studio afternoon light, creative soft beauty",
     ],
     "thap-nien": {
         "60s": [
-            "elegant 1960s Vietnamese beauty in áo dài, refined winged liner makeup, pearl earrings, graceful and composed",
-            "classic 1960s beauty, vintage updo with flowers, bold cat-eye makeup, cheongsam neckline, timeless elegance",
-            "1960s Vietnamese girl, simple floral áo dài, delicate natural beauty, period-accurate refined charm",
+            "dreamy beautiful 1960s girl, soft porcelain skin, gentle shy smile, classic áo dài in pastel blue, elegant winged liner, pearl drop earrings, hair in refined updo with jasmine flowers, soft golden afternoon light",
+            "dreamy beautiful 1960s girl, luminous fair complexion, wistful teary eyes, white silk áo dài with delicate embroidery, bold cat-eye makeup, vintage updo with gardenia flower, misty river morning light",
+            "dreamy beautiful 1960s girl, warm ivory skin, serene closed-eye expression, simple floral áo dài in light pink, natural makeup with red lips, loose wavy hair pinned with pearl clip, golden hour garden light",
+            "dreamy beautiful 1960s girl, dewy fresh face, curious bright smile, cream cheongsam-collar dress, subtle liner makeup, neat French twist hairstyle, vintage classroom soft window light",
+            "dreamy beautiful 1960s girl, porcelain doll face, melancholic gentle gaze, lavender áo dài with white trim, minimal rouge makeup, hair in low chignon with silk ribbon, rainy afternoon veranda light",
+            "dreamy beautiful 1960s girl, radiant glowing skin, playful dimpled laugh, yellow floral áo dài, fresh natural beauty, twin braids with small bows, bright spring market sunshine",
+            "dreamy beautiful 1960s girl, pale moonlit complexion, mysterious half-smile, midnight blue áo dài with silver thread, dramatic winged liner, sleek straight hair with headband, evening lantern glow",
+            "dreamy beautiful 1960s girl, soft rosy cheeks, tender loving expression, traditional white áo dài for ceremony, gentle blush makeup, elaborate updo with gold pins, temple incense smoke light",
+            "dreamy beautiful 1960s girl, warm honey skin, determined yet gentle eyes, dark green áo dài with lotus pattern, bold red lip, windswept loose hair, countryside sunset golden light",
+            "dreamy beautiful 1960s girl, fresh dewy no-makeup look, bright surprised expression, simple cotton áo bà ba in light blue, natural beauty, hair in single braid with wildflower, riverside morning mist",
         ],
         "70s": [
-            "charming 1970s Asian beauty, natural 70s makeup, bohemian floral dress, feathered hair, warm nostalgic charm",
-            "1970s Vietnamese girl in áo bà ba, simple beautiful face, fresh natural makeup, countryside warmth",
-            "seventies beauty, earth-tone outfit, natural afro-inspired voluminous hair, warm sun-kissed skin",
+            "dreamy beautiful 1970s girl, warm sun-kissed skin, gentle carefree smile, bohemian floral maxi dress, natural 70s makeup, feathered flowing hair, golden countryside sunset light",
+            "dreamy beautiful 1970s girl, soft dewy complexion, wistful distant gaze, áo bà ba in earthy brown, fresh natural face, loose wavy hair to shoulders, misty rice paddy morning light",
+            "dreamy beautiful 1970s girl, honey-toned glow, serene peaceful expression, cream crochet top with flared pants, minimal makeup with glossy lips, long straight center-parted hair, warm kerosene lamp glow",
+            "dreamy beautiful 1970s girl, radiant tan skin, playful laughing eyes, orange floral blouse with bell-bottoms, rosy natural blush, feathered bangs with headband, bright open-air market sunshine",
+            "dreamy beautiful 1970s girl, pale delicate skin, melancholic teary look, simple white cotton dress, bare-faced natural beauty, long hair in loose low ponytail, rainy window soft grey light",
+            "dreamy beautiful 1970s girl, warm amber complexion, shy blushing half-smile, sage green áo bà ba with straw hat, sun-freckled cheeks, messy windblown hair, bamboo grove dappled sunlight",
+            "dreamy beautiful 1970s girl, luminous fair skin, dreamy unfocused gaze, vintage lavender peasant blouse, soft pink lip tint, flower crown in flowing hair, wildflower meadow golden hour",
+            "dreamy beautiful 1970s girl, golden-lit face, confident bright smile, rust-colored wrap dress, bold 70s eye makeup, voluminous bouncy curls, disco-era warm spotlight glow",
+            "dreamy beautiful 1970s girl, cool porcelain complexion, contemplative reading expression, beige knit turtleneck, wire-rim round glasses, straight hair tucked behind ears, bookshop afternoon window light",
+            "dreamy beautiful 1970s girl, rosy warm skin, tearful yet smiling expression, faded blue denim jacket over white dress, no makeup natural face, windblown hair with dried flowers, riverside farewell sunset",
         ],
         "80s": [
-            "iconic 1980s Vietnamese beauty, permed voluminous hair, bold colorful makeup, retro blouse with ruffles",
-            "1980s Chinese girl, perm hairdo, bright eyeshadow, retro shoulder-pad outfit, full of era energy",
-            "eighties glam beauty, big teased hair, neon accent makeup, bold fashion, vivacious and expressive",
+            "dreamy beautiful 1980s girl, radiant glowing skin, confident bright smile, bold shoulder-pad blouse in electric pink, vivid colorful makeup, voluminous permed curly hair, neon sign warm glow",
+            "dreamy beautiful 1980s girl, soft dewy complexion, wistful gentle gaze, pastel mint blouse with ruffled collar, bright eyeshadow and blush, big teased wavy hair, vintage TV screen blue light",
+            "dreamy beautiful 1980s girl, warm honey skin, playful wink expression, red polka-dot dress with puff sleeves, bold red lips, curly permed bob with side-swept bangs, retro diner warm lighting",
+            "dreamy beautiful 1980s girl, porcelain fair face, shy dimpled smile, cream lace blouse tucked into high-waist jeans, subtle rosy makeup, long straight hair with big bow clip, bedroom poster wall soft lamp",
+            "dreamy beautiful 1980s girl, golden sun-kissed glow, carefree laughing expression, oversized denim jacket with patches, fresh sporty look, high ponytail with scrunchie, outdoor basketball court sunset",
+            "dreamy beautiful 1980s girl, luminous pale skin, mysterious half-smile, black off-shoulder sweater with gold necklace, smoky dramatic eye makeup, voluminous side-parted waves, nightclub colored disco light",
+            "dreamy beautiful 1980s girl, warm rosy cheeks, tender loving gaze, floral print dress with peter-pan collar, natural blush and lip gloss, neat bob with curled ends, family kitchen warm yellow light",
+            "dreamy beautiful 1980s girl, clear bright complexion, surprised innocent wide eyes, school uniform white shirt with ribbon tie, minimal fresh makeup, twin ponytails with colorful elastics, classroom morning sunlight",
+            "dreamy beautiful 1980s girl, tanned healthy glow, determined fierce expression, sporty aerobics leotard with leg warmers, bold 80s workout makeup, headband in crimped hair, gym mirror fluorescent light",
+            "dreamy beautiful 1980s girl, delicate pale features, melancholic teary beauty, vintage silk cheongsam in dusty rose, classic red lip, elegant finger-wave retro hairstyle, old photo studio warm spotlight",
         ],
         "90s": [
-            "quintessential 1990s Asian beauty, thin 90s eyebrows, glossy lips, butterfly clips in straight hair",
-            "1990s Vietnamese girl, blunt-cut bob, natural 90s makeup, simple elegant dress, nostalgic warmth",
-            "nineties style beauty, frosted lip gloss, dark outlined lips, spaghetti strap dress, 90s attitude",
+            "dreamy beautiful 1990s girl, flawless dewy skin, gentle shy smile, simple white t-shirt with denim overalls, thin 90s eyebrows with glossy lips, straight hair with butterfly clips, café afternoon warm light",
+            "dreamy beautiful 1990s girl, luminous glass skin, wistful gaze out window, pastel cardigan over slip dress, frosted pink lip gloss, blunt-cut bob with side part, rainy city street neon reflections",
+            "dreamy beautiful 1990s girl, warm natural glow, bright cheerful laugh, plaid flannel shirt tied at waist, minimal grunge makeup, messy loose waves with bandana headband, school rooftop golden hour",
+            "dreamy beautiful 1990s girl, porcelain complexion, serene peaceful expression, simple white áo dài modernized, natural nude makeup, long straight silky black hair, temple garden morning mist",
+            "dreamy beautiful 1990s girl, honey-toned skin, playful tongue-out wink, colorful crop top with high-waist jeans, sparkly eye glitter, twin space buns with loose strands, karaoke room colorful lights",
+            "dreamy beautiful 1990s girl, soft rosy face, melancholic teary half-smile, oversized boyfriend blazer, dark outlined lips 90s style, curtain bangs framing face, empty bus stop evening blue light",
+            "dreamy beautiful 1990s girl, clear bright skin, curious wide-eyed look, baby blue spaghetti strap top, subtle shimmer eyeshadow, straight hair clipped with claw clip, internet café CRT monitor glow",
+            "dreamy beautiful 1990s girl, golden warm complexion, confident gentle smile, black turtleneck with silver pendant, matte berry lips, sleek low ponytail, bookstore warm reading lamp",
+            "dreamy beautiful 1990s girl, fresh dewy face, shy blushing expression, floral sundress with cardigan, natural no-makeup look, half-up hair with ribbon, cherry blossom park dappled sunlight",
+            "dreamy beautiful 1990s girl, pale moonlit skin, dreamy distant gaze, vintage band t-shirt with choker necklace, smudged eyeliner, messy bedhead waves, bedroom string lights soft glow",
         ],
         "2000s": [
-            "Y2K era beauty, glossy lip gloss, shimmer eyeshadow, flat-ironed hair, early 2000s fashion",
-            "early 2000s Asian girl, butterfly clips, sparkly accessories, low-rise outfit, Y2K vibes",
-            "2000s Vietnamese girl, chunky highlights in hair, glittery makeup, trendy early-aughts look",
+            "dreamy beautiful Y2K girl, radiant glass skin, bright excited smile, baby pink halter top with low-rise jeans, glossy lip gloss and shimmer eyeshadow, flat-ironed straight hair, shopping mall bright lights",
+            "dreamy beautiful Y2K girl, luminous dewy complexion, wistful soft gaze, white camisole with butterfly embroidery, peach blush and clear gloss, loose beach waves with face-framing layers, sunset rooftop warm light",
+            "dreamy beautiful Y2K girl, warm honey glow, playful peace-sign pose, colorful graphic tee with mini skirt, sparkly butterfly clips in hair, chunky highlights blonde streaks, photo booth flash light",
+            "dreamy beautiful Y2K girl, porcelain fair skin, serene gentle expression, pastel velour tracksuit, soft pink monochrome makeup, sleek ponytail with tendril bangs, early morning yoga studio light",
+            "dreamy beautiful Y2K girl, fresh natural face, shy dimpled smile, denim jacket covered in pins and patches, bare minimal makeup, messy side braid, indie coffee shop afternoon warmth",
+            "dreamy beautiful Y2K girl, golden sun-kissed skin, carefree laughing expression, boho crochet top with flared jeans, bronzer glow and nude lip, long tousled wavy hair, music festival sunset golden haze",
+            "dreamy beautiful Y2K girl, cool-toned clear skin, mysterious half-smile, black mesh top over tank top, smoky dark eye makeup, pin-straight jet black hair, nightclub UV purple light",
+            "dreamy beautiful Y2K girl, soft rosy complexion, tender emotional expression, vintage band hoodie oversized, dewy no-makeup makeup, messy bun with chopstick through it, dorm room desk lamp glow",
+            "dreamy beautiful Y2K girl, bright healthy glow, confident bright grin, sporty polo shirt with pleated mini skirt, fresh preppy makeup, high ponytail with ribbon, school campus cherry blossom sunshine",
+            "dreamy beautiful Y2K girl, delicate pale features, tearful bittersweet beauty, silk slip dress in champagne gold, glossy teary eyes with shimmer, elegant loose curls pinned on one side, prom night warm ballroom light",
         ],
         "default": [
             "vintage Vietnamese beauty in retro era clothing, classic makeup of the period, timeless feminine charm",
@@ -814,8 +811,8 @@ def create_prompt(
         # Ảnh cảnh/vật: negative prefix ở đầu vẫn ok
         full_prompt = f"{NEGATIVE_PREFIX}{prompt_raw}, {anatomy_suffix}, {brand_suffix}"
 
-    # NSFW fallback
-    if not is_safe_prompt(full_prompt):
+    # NSFW fallback — chỉ check prompt_raw (không check NEGATIVE_PREFIX vì nó chứa "bare skin" etc.)
+    if not is_safe_prompt(prompt_raw):
         if use_character:
             if era == "hien-dai":
                 safe_char = character_desc or "young Asian woman in casual modern outfit"

@@ -180,6 +180,37 @@ def _analyze_seo_with_confirm(title, author, genres, chapters, docx_paths, auto=
         print(f"✅ Đã lưu SEO: {out_path}")
 
 
+def _ask_era(current_era: str, current_decade: str = "") -> tuple:
+    """
+    Hỏi user chọn era thủ công. Trả về (era, decade).
+    Nếu stdin không phải tty hoặc user nhấn Enter → giữ nguyên.
+    """
+    import sys
+    if not sys.stdin.isatty():
+        return current_era, current_decade
+
+    era_label = {"co-trang": "CỔ TRANG", "hien-dai": "HIỆN ĐẠI", "thap-nien": "THẬP NIÊN"}.get(current_era, current_era.upper())
+    print(f"\n🎭  Era hiện tại: [{era_label}]{f' ({current_decade})' if current_decade else ''}")
+    print("   1. Cổ Trang   (cung đình, tiên hiệp, huyền huyễn, ...)")
+    print("   2. Hiện Đại   (ngôn tình, đô thị, đam mỹ, ...)")
+    print("   3. Thập Niên  (60s, 70s, 80s, 90s, 2000s)")
+    era_choice = input("   Chọn era [1/2/3] hoặc Enter để giữ nguyên: ").strip()
+
+    era, decade = current_era, current_decade
+    if era_choice == "1":
+        era, decade = "co-trang", ""
+    elif era_choice == "2":
+        era, decade = "hien-dai", ""
+    elif era_choice == "3":
+        era = "thap-nien"
+        dec_choice = input("   Thập niên nào? [60s/70s/80s/90s/2000s]: ").strip().lower()
+        decade = dec_choice if dec_choice in ("60s", "70s", "80s", "90s", "2000s") else "default"
+
+    era_label = {"co-trang": "CỔ TRANG", "hien-dai": "HIỆN ĐẠI", "thap-nien": "THẬP NIÊN"}.get(era, era.upper())
+    print(f"   ✅ Era: [{era_label}]{f' ({decade})' if decade else ''}")
+    return era, decade
+
+
 def _generate_images_with_confirm(title, genres_str, chapters, docx_paths, auto=False):
     """
     Tạo 10 thumbnail 16:9 đa dạng góc chụp, bám sát nội dung truyện.
@@ -260,6 +291,10 @@ def _generate_images_with_confirm(title, genres_str, chapters, docx_paths, auto=
     if not era:
         era = era_by_genre or "co-trang"
         print(f"   Era suy ra từ thể loại '{genre_first}': [{era.upper()}]")
+
+    # ── Hỏi xác nhận era thủ công ────────────────────────────────
+    if not auto:
+        era, decade = _ask_era(era, decade)
 
     genre       = genres_str.split(',')[0].strip() if genres_str else "co-trang"
     base_seed   = int(hashlib.md5(title.encode()).hexdigest()[:8], 16) % (2**31)
@@ -480,6 +515,22 @@ def _generate_shorts_with_confirm(title, author, genres_str, chapters, docx_path
         base_dir = os.path.join(_TODAY_DIR, _slugify(title))
     output_dir = os.path.join(base_dir, 'shorts')
 
+    # ── Hỏi era trước khi chạy shorts ──────────────────────────
+    import sys as _sys
+    _GENRE_ERA_S = {
+        "co-trang": "co-trang", "cung-dinh": "co-trang", "tien-hiep": "co-trang",
+        "huyen-huyen": "co-trang", "vo-hiep": "co-trang", "lich-su": "co-trang",
+        "xuyen-khong": "co-trang", "xuyen-thanh": "co-trang",
+        "ngon-tinh": "hien-dai", "hien-dai": "hien-dai", "do-thi": "hien-dai",
+        "hai-huoc": "hien-dai", "trong-sinh": "hien-dai", "dam-my": "hien-dai",
+    }
+    _gf = genres_str.split(',')[0].strip() if genres_str else ""
+    _default_era = _GENRE_ERA_S.get(_gf, "co-trang")
+    if not auto:
+        _default_era, _default_decade = _ask_era(_default_era, "")
+    else:
+        _default_decade = ""
+
     result = run_shorts_pipeline(
         title=title,
         author=author,
@@ -488,6 +539,8 @@ def _generate_shorts_with_confirm(title, author, genres_str, chapters, docx_path
         output_dir=output_dir,
         hf_token=HF_API_TOKEN,
         ratio=HF_IMAGE_RATIO,
+        era_override=_default_era,
+        decade_override=_default_decade,
     )
 
     if result:
