@@ -13,21 +13,27 @@ logger = logging.getLogger(__name__)
 
 def strip_foreign_chars(text: str) -> str:
     """
-    Xóa ký tự tiếng Trung (CJK) và các từ tiếng Anh thuần (không phải tên riêng)
-    sót lại sau khi AI rewrite.
-
-    - CJK block: U+4E00–U+9FFF (Hán tự phổ thông) + mở rộng
-    - Từ tiếng Anh: chuỗi toàn a-z/A-Z dài ≥ 3 ký tự, không phải tên (không có chữ hoa đầu)
-      → chỉ xóa từ thường (lowercase) để tránh xóa tên nhân vật phiên âm
+    Xóa ký tự ngoại ngữ sót lại sau khi AI rewrite:
+    - CJK (Hán tự), Cyrillic (Nga), Hangul (Hàn), Kana (Nhật)
+    - CỤM tiếng Anh dài (≥ 4 từ liền) — giữ lại từ đơn lẻ (tên riêng, thuật ngữ)
     """
-    # 1. Xóa ký tự CJK đứng rời hoặc thành cụm
+    # 1. Xóa CJK
     text = re.sub(r'[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3000-\u303f]+', '', text)
 
-    # 2. Xóa từ tiếng Anh lowercase thuần (ví dụ: "the", "of", "and", "chapter", "said")
-    #    Giữ lại nếu có chữ hoa đầu (tên riêng) hoặc xen kẽ trong từ tiếng Việt
-    text = re.sub(r'\b[a-z]{3,}\b', '', text)
+    # 2. Xóa Cyrillic (tiếng Nga hay bị lẫn: мой, это, ...)
+    text = re.sub(r'[\u0400-\u04ff]+', '', text)
 
-    # 3. Dọn dẹp khoảng trắng thừa sau khi xóa
+    # 3. Xóa Hangul (Hàn Quốc)
+    text = re.sub(r'[\uac00-\ud7af\u1100-\u11ff]+', '', text)
+
+    # 4. Xóa Kana (Nhật: Hiragana + Katakana)
+    text = re.sub(r'[\u3040-\u309f\u30a0-\u30ff]+', '', text)
+
+    # 5. Xóa CỤM tiếng Anh dài (≥ 4 từ ASCII liền nhau) — thường là câu Anh sót
+    #    Giữ lại từ đơn lẻ (tên nhân vật, thuật ngữ phổ biến)
+    text = re.sub(r'(?<![a-zA-Z])(?:[a-zA-Z]+\s+){3,}[a-zA-Z]+(?![a-zA-Z])', '', text)
+
+    # 6. Dọn dẹp khoảng trắng thừa sau khi xóa
     text = re.sub(r'  +', ' ', text)
     text = re.sub(r'^ +| +$', '', text, flags=re.MULTILINE)
     text = re.sub(r'\n{3,}', '\n\n', text)
@@ -97,7 +103,9 @@ PHƯƠNG PHÁP — áp dụng TẤT CẢ những kỹ thuật sau:
 
 RÀNG BUỘC CỨNG:
 - Giữ nguyên: tên nhân vật, cốt truyện chính, kết quả của mỗi cảnh, thứ tự nhân quả
-- NGÔN NGỮ: 100% tiếng Việt — dịch ngay bất kỳ chữ Hán nào còn sót trong bản gốc
+- NGÔN NGỮ: 100% tiếng Việt — dịch ngay bất kỳ chữ Hán, tiếng Anh, tiếng Nga hoặc ngôn ngữ khác còn sót trong bản gốc
+- CHÍNH TẢ: Mỗi câu phải đầy đủ chủ ngữ, vị ngữ, không được bỏ sót từ. Kiểm tra lại từng câu trước khi trả kết quả — nếu câu nào thiếu từ hoặc vô nghĩa thì viết lại cho hoàn chỉnh
+- LIỀN MẠCH: Các đoạn văn phải nối tiếp nhau logic — đoạn sau phải tiếp nối ý đoạn trước, không được nhảy ý đột ngột
 - ĐỊNH DẠNG: mỗi đoạn văn và câu thoại phải cách nhau bằng MỘT DÒNG TRỐNG (\\n\\n)
 - KHÔNG thêm tiêu đề, số chương, ghi chú, hay bất kỳ lời giải thích nào
 
@@ -114,10 +122,11 @@ Quy tắc:
 2. Sau mỗi hành động quan trọng, thêm 1–2 câu tâm lý của nhân vật
 3. Giữ nguyên tên nhân vật, cốt truyện, kết quả cảnh
 4. Viết dài hơn 20–30% so với bản gốc
-5. TUYỆT ĐỐI không dùng chữ Hán/Trung Quốc — nếu gặp chữ Hán thì dịch sang tiếng Việt ngay
-6. TUYỆT ĐỐI không dùng tiếng Anh — nếu gặp từ Anh thì dịch hoặc bỏ
-7. Mỗi đoạn văn cách nhau một dòng trống
-8. CHỈ trả về nội dung đã viết lại, không giải thích, không tiêu đề"""
+5. TUYỆT ĐỐI không dùng chữ Hán, tiếng Anh, tiếng Nga hay bất kỳ ngôn ngữ nào khác — dịch hết sang tiếng Việt
+6. Mỗi câu phải ĐẦY ĐỦ chủ ngữ và vị ngữ, KHÔNG được bỏ sót từ — đọc lại từng câu trước khi trả kết quả
+7. Các đoạn phải NỐI TIẾP nhau logic, đoạn sau tiếp nối ý đoạn trước
+8. Mỗi đoạn văn cách nhau một dòng trống
+9. CHỈ trả về nội dung đã viết lại, không giải thích, không tiêu đề"""
 
 try:
     from config import GROQ_FALLBACK_MODELS as _GROQ_FALLBACK_MODELS
