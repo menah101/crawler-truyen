@@ -190,14 +190,7 @@ def _generate_images_with_confirm(title, genres_str, chapters, docx_paths, auto=
     - Không xoay quanh nhân vật: chỉ 3/10 hình có close_up nhân vật
     """
     import sys, hashlib, json as _json
-    for mv_path in [
-        os.path.expanduser("~/data/hongtran/make-video"),
-        os.path.join(os.path.dirname(__file__), "make-video"),
-    ]:
-        if os.path.isdir(mv_path) and mv_path not in sys.path:
-            sys.path.insert(0, mv_path)
-            break
-    from pipeline.image_generator import sentence_to_image
+    from image_generator import sentence_to_image
 
     if not HF_API_TOKEN:
         print("⚠️  HF_API_TOKEN chưa được cấu hình — bỏ qua tạo thumbnail.")
