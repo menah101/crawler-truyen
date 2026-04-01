@@ -411,7 +411,13 @@ def _generate_images_with_confirm(title, genres_str, chapters, docx_paths, auto=
 
         sentence = _pick_visual_sentence(ch) + f", {_ANATOMY_HINT}"
         ch_num   = ch.get('number', '?')
-        seed     = (base_seed + idx * 1009) % (2**31)
+        # Seed khác biệt lớn cho mỗi thumbnail — đặc biệt ảnh có nhân vật
+        # Dùng hash riêng per index để FLUX tạo gương mặt hoàn toàn khác nhau
+        if shot_type in ('close_up', 'medium', 'action', 'two_shot'):
+            # Seed hoàn toàn ngẫu nhiên per nhân vật — tránh gương mặt giống nhau
+            seed = int(hashlib.md5(f"{title}_face_{idx}_{shot_type}".encode()).hexdigest()[:8], 16) % (2**31)
+        else:
+            seed = (base_seed + idx * 1009) % (2**31)
 
         # Trích setting/emotion từ câu tiếng Việt
         vi_setting, vi_action = _extract_vi_scene(sentence)
@@ -433,7 +439,7 @@ def _generate_images_with_confirm(title, genres_str, chapters, docx_paths, auto=
                 genre=genre,
                 era=era,
                 decade=decade,
-                character_desc=character_desc if shot_type in ('close_up', 'medium', 'action', 'two_shot') else "",
+                character_desc="",  # Để trống — beauty pool tự chọn nhân vật đa dạng cho mỗi thumbnail
                 action=close_up_action,
                 setting=vi_setting,
                 seed=seed,

@@ -514,28 +514,88 @@ _EMOTION_SHOT_OVERRIDE = {
 
 _BEAUTY_CHARS = {
     "co-trang": [
-        "gorgeous Chinese beauty, porcelain skin, almond eyes, deep crimson lips, elaborate gold hairpin in black updo",
-        "enchanting hanfu girl, bright tearful eyes, cherry lips, pale flawless skin, jade flower hairpin, delicate presence",
-        "stunning ancient empress, sharp phoenix eyes, bold red lips, luminous ivory skin, phoenix crown with gold and pearl",
-        "captivating palace lady in ivory hanfu with silver embroidery, gentle doe eyes, soft pink lips, silver moon hairpin",
-        "mesmerizing court beauty, deep knowing eyes, subtle smile, obsidian hair in loose bun, midnight blue hanfu",
-        "noble young princess, innocent bright eyes, coral lips, flawless complexion, pearl-studded hairpin, graceful",
-        "ethereal celestial maiden, luminous skin, serene silver eyes, white flower crown, transcendent otherworldly beauty",
-        "fierce warrior princess, intense dark eyes, bold lips, battle-worn yet breathtaking, armored hanfu silhouette",
-        "mysterious beauty behind gauze veil, smoldering eyes visible, gold-threaded silk hanfu, alluring mystique",
-        "tender handmaiden beauty, shy downcast eyes, soft blush cheeks, simple elegant hairpin, innocent charm",
+        # ── Phong cách 1: Quý phi kiều diễm ──
+        "fashion model portrait, gorgeous Chinese empress, round porcelain face, dramatic red lip makeup, elaborate gold phoenix crown, crimson silk hanfu with gold dragon embroidery, regal confident gaze, studio-quality beauty shot",
+        # ── Phong cách 2: Tiểu thư u buồn ──
+        "fashion model portrait, melancholic young woman, oval face with tear-stained cheeks, smudged dark eye makeup, messy long black hair with loose jade hairpin, wrinkled white inner robe, raw emotional vulnerability",
+        # ── Phong cách 3: Nữ tướng lạnh lùng ──
+        "fashion model portrait, fierce female warrior, angular sharp jawline, no makeup bare face with battle scar on left cheek, hair pulled back tight in military braid, black leather armor with silver studs, intense predator eyes",
+        # ── Phong cách 4: Tiên nữ phiêu diêu ──
+        "fashion model portrait, ethereal celestial maiden, long narrow face, luminous pale silver eyes, flowing white-silver hair to waist, sheer white silk robes with cloud patterns, otherworldly serene expression, glowing aura",
+        # ── Phong cách 5: Thôn nữ tươi tắn ──
+        "fashion model portrait, cheerful village peasant girl, round chubby sun-tanned face with dimples, bright laughing eyes, messy braided pigtails with wildflowers, simple brown cotton dress, barefoot, natural countryside beauty",
+        # ── Phong cách 6: Hồ ly tinh quyến rũ ──
+        "fashion model portrait, seductive fox spirit, feline heart-shaped face, sharp upturned cat eyes with amber-gold irises, mischievous smirk, wild untamed red-tinted hair, dark purple silk robe, supernatural allure",
+        # ── Phong cách 7: Nữ hiệp giang hồ ──
+        "fashion model portrait, rugged swordswoman, square strong jawline, thick bold eyebrows, wind-swept short hair at chin length, tanned weathered skin, dark grey travel-worn robe with sword strap, fearless adventurer look",
+        # ── Phong cách 8: Cung nữ nhỏ nhắn ──
+        "fashion model portrait, petite palace maid, small delicate face, innocent wide doe eyes, soft pink blush on pale cheeks, neat low bun with single silver pin, pastel lavender servant hanfu, shy timid posture",
+        # ── Phong cách 9: Hoàng hậu uy nghiêm ──
+        "fashion model portrait, majestic mature empress, diamond-shaped face with high cheekbones, cold intimidating gaze, heavy elaborate updo with ruby and gold ornaments, dark midnight blue brocade hanfu, powerful commanding presence",
+        # ── Phong cách 10: Nữ thần y ──
+        "fashion model portrait, gentle healer woman, soft oval face with warm kind eyes, hair wrapped in white cloth headband, simple sage-green hemp robe, herbal medicine pouch on belt, compassionate wise expression",
+        # ── Phong cách 11: Sát thủ bí ẩn ──
+        "fashion model portrait, masked assassin woman, only piercing dark eyes visible above black silk face mask, sleek tight black outfit, hair completely hidden under hood, deadly cold calculating stare, shadows on face",
+        # ── Phong cách 12: Công chúa phản nghịch ──
+        "fashion model portrait, rebellious young princess, heart-shaped face with defiant smirk, bold dark eye makeup like war paint, half-shaved head with long flowing other side, torn royal hanfu repurposed as battle gear, punk warrior energy",
+        # ── Phong cách 13: Nữ học giả ──
+        "fashion model portrait, scholarly intellectual woman, refined rectangular face, thin wire reading glasses, ink stains on fingertips, neat tight bun with wooden hairpin, plain dark blue scholar robe, thoughtful analytical gaze",
+        # ── Phong cách 14: Vũ nữ cung đình ──
+        "fashion model portrait, graceful court dancer mid-performance, elongated elegant face, dramatic stage makeup with painted eyebrows, hair decorated with jingling bells and ribbons, flowing rainbow gradient silk sleeves, dynamic artistic pose",
+        # ── Phong cách 15: Trưởng môn phái ──
+        "fashion model portrait, dignified sect leader woman, strong broad face with stern expression, silver-streaked black hair in elaborate crown braid, ornate golden ceremonial armor over white robe, authoritative noble bearing, mature powerful beauty",
+        # ── Phong cách 16: Nàng thơ lãng mạn ──
+        "fashion model portrait, dreamy romantic poet woman, soft round face with gentle half-smile, loose flowing hair decorated with fresh peach blossoms, light pink translucent layered hanfu, holding a calligraphy brush, wistful distant gaze",
+        # ── Phong cách 17: Ma nữ đáng thương ──
+        "fashion model portrait, tragic ghost woman, gaunt pale face with hollow dark-circled eyes, long straight jet-black hair covering half face, torn faded white burial robe, single tear of blood on cheek, hauntingly beautiful",
+        # ── Phong cách 18: Nữ tặc hải đảo ──
+        "fashion model portrait, sun-bronzed pirate queen, angular weathered face, bold scar across nose bridge, wild windblown hair with gold coins braided in, open-collar rugged seafarer outfit, fearless crooked grin, ocean spray on skin",
+        # ── Phong cách 19: Tiểu ni cô ──
+        "fashion model portrait, young Buddhist nun, perfectly smooth shaved head, serene peaceful round face, no makeup natural clean skin, simple grey monk robe, prayer beads around neck, tranquil meditative expression",
+        # ── Phong cách 20: Nữ hoàng băng giá ──
+        "fashion model portrait, ice queen beauty, sharp sculpted face with glass-like pale skin, frost-white eyebrows and lashes, platinum silver hair in geometric crystal crown, metallic icy-blue hanfu with snowflake patterns, cold emotionless perfection",
     ],
     "hien-dai": [
-        "stunning Vietnamese beauty, flawless dewy skin, full glossy lips, bright expressive eyes, sleek straight black hair",
-        "gorgeous modern Asian woman, sophisticated smoky eye makeup, nude lips, radiant complexion, silky hair in waves",
-        "captivating young woman, bold red lips, dramatic lashes, luminous glass skin, chic bob haircut",
-        "beautiful Korean-style beauty, soft gradient lips, puppy eyes, honey glow skin, pastel outfit, trendy style",
-        "striking modern woman, editorial sharp liner makeup, matte lips, high cheekbones, power blazer and sleek ponytail",
-        "fresh natural beauty, minimal makeup, bright clear eyes, oversized cream sweater, effortlessly attractive",
-        "glamorous urban woman, full glam makeup, statement earrings, satin blouse, polished and confident",
-        "indie aesthetic beauty, artistic makeup, eclectic outfit, soft dreamy eyes, unique personal style",
-        "sophisticated office woman, tailored suit, subtle elegant makeup, sharp intelligent eyes, professional poise",
-        "bohemian free spirit, flowing dress, natural dewy skin, flower accessory in hair, warm and radiant",
+        # ── Phong cách 1: Hot girl sang chảnh ──
+        "fashion model portrait, glamorous Vietnamese socialite, oval face with flawless glass skin, full red lips, sleek straight black hair, designer off-shoulder dress, diamond earrings, luxury confident aura",
+        # ── Phong cách 2: Cô gái mưa ──
+        "fashion model portrait, melancholic girl in rain, round face with wet hair plastered to cheeks, smudged mascara tears, oversized soaked trench coat, raw emotional vulnerability, moody blue tones",
+        # ── Phong cách 3: CEO quyền lực ──
+        "fashion model portrait, powerful businesswoman, sharp angular face with sculpted cheekbones, slicked-back hair in tight low bun, black power suit with sharp shoulders, minimal gold jewelry, intimidating corporate stare",
+        # ── Phong cách 4: Idol K-pop ──
+        "fashion model portrait, K-pop idol style, heart-shaped face, gradient coral lips, sparkly eye glitter makeup, pastel pink highlighted hair in loose waves, trendy oversized blazer, cute aegyo expression",
+        # ── Phong cách 5: Nghệ sĩ bohemian ──
+        "fashion model portrait, bohemian artist woman, soft features with paint-splattered freckled face, wild curly hair with dried flowers woven in, colorful oversized vintage cardigan, eclectic silver rings on every finger, free-spirited dreamy eyes",
+        # ── Phong cách 6: Tomboy cool ──
+        "fashion model portrait, androgynous tomboy, strong square jaw, zero makeup bare athletic face, undercut pixie haircut dyed ash grey, white tank top showing toned shoulders, silver chain necklace, confident smirk",
+        # ── Phong cách 7: Goth queen ──
+        "fashion model portrait, gothic dark queen, pale narrow face, dramatic black smoky eyes with dark lipstick, jet black hair with blunt bangs, black lace choker, velvet dark outfit, mysterious intense stare",
+        # ── Phong cách 8: Cô sinh viên ──
+        "fashion model portrait, fresh-faced college student, petite baby face with natural skin, minimal lip tint only, messy ponytail with loose strands, oversized university hoodie, round glasses, genuine bright innocent smile",
+        # ── Phong cách 9: Dancer đường phố ──
+        "fashion model portrait, street dancer woman, diamond-shaped face glistening with sweat, bold graphic eyeliner, hair in tight cornrow braids, crop top with baggy cargo pants, dynamic confident energy, urban gritty vibe",
+        # ── Phong cách 10: Nàng thơ vintage ──
+        "fashion model portrait, vintage-aesthetic woman, classic oval face, retro red lipstick and winged liner, finger-wave styled short hair, silk polka-dot blouse with high-waist skirt, pearl necklace, old Hollywood glamour",
+        # ── Phong cách 11: Biker girl ──
+        "fashion model portrait, motorcycle biker woman, angular tanned face with windburn, no makeup sun-weathered look, helmet-flattened messy hair, black leather jacket unzipped, reflective aviator sunglasses pushed up on forehead, rebellious attitude",
+        # ── Phong cách 12: Nữ bác sĩ ──
+        "fashion model portrait, elegant doctor woman, refined intelligent face, subtle natural makeup, neat professional bob haircut, white lab coat over silk blouse, stethoscope around neck, calm reassuring expression",
+        # ── Phong cách 13: DJ đêm ──
+        "fashion model portrait, nightclub DJ woman, striking face with neon-colored eyeshadow, glitter on cheekbones, half-shaved head with long neon-purple other side, chunky headphones around neck, holographic top, electric party energy",
+        # ── Phong cách 14: Cô giáo hiền ──
+        "fashion model portrait, warm teacher woman, round soft face with gentle smile lines, reading glasses on nose tip, hair in loose French braid, cream turtleneck sweater, holding stack of books, approachable maternal warmth",
+        # ── Phong cách 15: Người mẫu runway ──
+        "fashion model portrait, high-fashion runway model, elongated sculpted face with razor-sharp contour, dramatic avant-garde geometric eye makeup, slicked-wet hair pulled severely back, architectural couture outfit, fierce editorial model walk expression",
+        # ── Phong cách 16: Cô gái biển ──
+        "fashion model portrait, beach girl at golden hour, sun-kissed freckled face, salt-dried wavy hair, no makeup natural tan glow, white linen beach shirt, seashell necklace, relaxed carefree ocean-breeze smile",
+        # ── Phong cách 17: Hacker girl ──
+        "fashion model portrait, cyberpunk hacker girl, sharp face lit by blue screen glow, dark circles under intense focused eyes, messy unwashed bob haircut, oversized black hoodie, multiple monitor reflections in glasses, nocturnal tech genius vibe",
+        # ── Phong cách 18: Tiểu thư nhà giàu ──
+        "fashion model portrait, elegant heiress, diamond-shaped aristocratic face, perfectly groomed eyebrows, classic chignon updo, Chanel-style tweed jacket with brooch, white gloves, composed polished old-money sophistication",
+        # ── Phong cách 19: Võ sĩ MMA ──
+        "fashion model portrait, female MMA fighter, broad strong face with swollen bruised cheekbone, fierce determined eyes, hair in tight fight braids, athletic sports bra showing muscular shoulders, hand wraps, warrior intensity",
+        # ── Phong cách 20: Cô dâu ──
+        "fashion model portrait, radiant bride-to-be, soft glowing face with bridal makeup, happy tearful eyes, elegant low chignon with baby breath flowers, white lace wedding dress visible at neckline, pure joyful emotional beauty",
     ],
     "thap-nien": {
         "60s": [
@@ -687,7 +747,9 @@ def create_prompt(
     lighting_opts = profile.get("lighting_options", ["dramatic cinematic lighting"])
     lighting = lighting_opts[scene_index % len(lighting_opts)]
 
-    # ── Beauty pool: chọn theo era + scene_index để đa dạng qua 20 thumbnail ──
+    # ── Beauty pool: mỗi scene chọn cô gái KHÁC NHAU từ pool ──────
+    # Luôn dùng beauty pool làm nhân vật chính — đảm bảo đa dạng gương mặt.
+    # character_desc (từ scenes.json) chỉ bổ sung trang phục/era, KHÔNG override khuôn mặt.
     if use_character:
         if era == "thap-nien":
             dec = decade or "default"
@@ -695,9 +757,8 @@ def create_prompt(
         else:
             char_pool = _BEAUTY_CHARS.get(era, _BEAUTY_CHARS["co-trang"])
         beauty_desc = char_pool[scene_index % len(char_pool)]
-        # Nếu character_desc được truyền vào (từ scenes.json), ưu tiên dùng nhưng
-        # thêm beauty desc để FLUX hiểu rõ hơn về nhan sắc
-        char = beauty_desc if not character_desc else f"{character_desc}, {beauty_desc}"
+        # Beauty pool = nhân vật chính — mỗi index là một cô gái khác hoàn toàn
+        char = f"{beauty_desc}, DIFFERENT UNIQUE PERSON"
         prompt_raw = f"{char}, {setting_hint}, {lighting}, {composition}"
     else:
         scene_pool = _BEAUTY_SCENES.get(era, _BEAUTY_SCENES["co-trang"])
@@ -744,8 +805,14 @@ def create_prompt(
         # Thêm prefix cứng no-person
         prompt_raw = f"NO PERSON NO HUMAN — {prompt_raw}"
 
-    # Ghép prefix + anatomy suffix + brand suffix theo era
-    full_prompt = f"{NEGATIVE_PREFIX}{prompt_raw}, {anatomy_suffix}, {brand_suffix}"
+    # Ghép prompt: nhân vật/scene ĐẶT ĐẦU TIÊN để FLUX ưu tiên,
+    # negative + anatomy + brand suffix đặt sau
+    if use_character:
+        # Ảnh có người: character description phải ở đầu prompt để FLUX tạo gương mặt khác nhau
+        full_prompt = f"{prompt_raw}, {anatomy_suffix}, {brand_suffix}, {NEGATIVE_PREFIX}"
+    else:
+        # Ảnh cảnh/vật: negative prefix ở đầu vẫn ok
+        full_prompt = f"{NEGATIVE_PREFIX}{prompt_raw}, {anatomy_suffix}, {brand_suffix}"
 
     # NSFW fallback
     if not is_safe_prompt(full_prompt):
@@ -778,15 +845,17 @@ def generate_image(
     headers: dict,
     ratio: str = "9:16",
     seed: int | None = None,
+    has_character: bool = False,
 ) -> Image.Image:
     """
     Generate ảnh từ FLUX.1-schnell.
 
     Args:
-        prompt:  Text prompt đã được xử lý
-        headers: {"Authorization": "Bearer hf_..."}
-        ratio:   "9:16" | "16:9" | "1:1"
-        seed:    Seed cố định → giữ style nhất quán giữa các scene cùng truyện
+        prompt:        Text prompt đã được xử lý
+        headers:       {"Authorization": "Bearer hf_..."}
+        ratio:         "9:16" | "16:9" | "1:1"
+        seed:          Seed cố định → giữ style nhất quán giữa các scene cùng truyện
+        has_character: True nếu ảnh có nhân vật → tăng inference steps để tạo gương mặt rõ nét hơn
 
     Returns:
         PIL Image object
@@ -796,8 +865,8 @@ def generate_image(
     params: dict = {
         "width":               width,
         "height":              height,
-        "num_inference_steps": 8,
-        "guidance_scale":      0.0,
+        "num_inference_steps": 12 if has_character else 8,
+        "guidance_scale":      3.5 if has_character else 0.0,
     }
     if seed is not None:
         params["seed"] = seed
@@ -862,5 +931,8 @@ def sentence_to_image(
         character_desc=character_desc, action=action, setting=setting,
         shot_type=shot_type, scene_index=scene_index,
     )
-    image = generate_image(prompt, headers, ratio=ratio, seed=seed)
+    # Ảnh có nhân vật → tăng steps + guidance để FLUX tạo gương mặt rõ nét & khác biệt
+    _CHARACTER_SHOTS = {"close_up", "medium", "action", "two_shot", "back_view"}
+    image = generate_image(prompt, headers, ratio=ratio, seed=seed,
+                           has_character=(shot_type in _CHARACTER_SHOTS))
     return image, prompt

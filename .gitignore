@@ -10,3 +10,4 @@ __pycache__/
 docx_output/
 label/
 logs/
+_test_faces/
