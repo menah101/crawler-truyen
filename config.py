@@ -32,7 +32,7 @@ REQUEST_DELAY = 1.5
 
 # === Rewriter ===
 REWRITE_ENABLED = True
-REWRITE_PROVIDER = "ollama"    # "anthropic" | "gemini" | "deepseek" | "groq" | "ollama" | "local"
+REWRITE_PROVIDER = "groq"    # "anthropic" | "gemini" | "deepseek" | "groq" | "ollama" | "local"
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
@@ -52,7 +52,7 @@ GROQ_MODEL = "llama-3.3-70b-versatile"
 # Fallback models khi bị rate limit (theo thứ tự ưu tiên)
 GROQ_FALLBACK_MODELS = [
     "llama-3.3-70b-versatile",   # 12k TPM free
-    "llama3-8b-8192",            # 20k TPM free
+    "llama-3.1-8b-instant",      # 20k TPM free (thay thế llama3-8b-8192 đã bị xóa)
     "gemma2-9b-it",              # 15k TPM free
 ]
 
