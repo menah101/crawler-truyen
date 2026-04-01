@@ -30,9 +30,9 @@ DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'prisma', 'dev.db')
 CRAWL_SCHEDULE = "08:00"
 REQUEST_DELAY = 1.5
 
-# === Rewriter ===
+# === Rewriter thứ tự model được yêu tiên ===
 REWRITE_ENABLED = True
-REWRITE_PROVIDER = "gemini"    # "anthropic" | "gemini" | "deepseek" | "groq" | "ollama" | "local"
+REWRITE_PROVIDER = "ollama"    # 1."anthropic" | 2."gemini" | 3."deepseek" | 4."groq" | 5."huggingface" | 6."ollama" | 7."local"
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
@@ -46,6 +46,13 @@ DEEPSEEK_MODEL = "deepseek-chat"   # hoặc "deepseek-reasoner"
 
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:12b")   # gemma3:12b (~8GB) | gemma3:4b (~3GB) | qwen2.5:7b
+
+HF_REWRITE_MODEL = "CohereForAI/aya-expanse-32b"   # aya-expanse-32b | Qwen/Qwen2.5-72B-Instruct | meta-llama/Llama-3.3-70B-Instruct
+HF_REWRITE_FALLBACK_MODELS = [
+    "CohereForAI/aya-expanse-32b",           # multilingual, tiếng Việt tốt
+    "meta-llama/Llama-3.3-70B-Instruct",     # ổn định, ít leak
+    "Qwen/Qwen2.5-72B-Instruct",             # chất lượng cao, đôi khi leak Hán
+]
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_MODEL = "llama-3.3-70b-versatile"

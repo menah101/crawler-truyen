@@ -274,6 +274,68 @@ def rewrite_ollama(text, base_url, model):
 
 
 # ============================================================
+# HUGGINGFACE INFERENCE API
+# ============================================================
+
+def rewrite_huggingface(text, api_token, model):
+    """Viết lại bằng HuggingFace Serverless Inference API — tự fallback qua các model."""
+    import requests
+    try:
+        from config import HF_REWRITE_FALLBACK_MODELS
+    except ImportError:
+        HF_REWRITE_FALLBACK_MODELS = []
+
+    models = [model] + [m for m in HF_REWRITE_FALLBACK_MODELS if m != model]
+
+    for m in models:
+        url = f"https://router.huggingface.co/hf-inference/models/{m}/v1/chat/completions"
+        try:
+            resp = requests.post(
+                url,
+                headers={
+                    "Authorization": f"Bearer {api_token}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": m,
+                    "max_tokens": 4096,
+                    "temperature": 0.8,
+                    "messages": [{"role": "user", "content": f"{REWRITE_PROMPT}\n\n---\n\n{text}"}],
+                },
+                timeout=180,  # cold start có thể chậm
+            )
+        except Exception as e:
+            logger.error(f"    ❌ HuggingFace {m} error: {e}")
+            continue
+
+        if resp.status_code == 503:
+            logger.warning(f"    ⚠️ HF {m}: model đang tải (503), thử model khác...")
+            time.sleep(3)
+            continue
+
+        if resp.status_code == 429:
+            logger.warning(f"    ⚠️ HF {m}: rate limit (429), thử model khác...")
+            time.sleep(5)
+            continue
+
+        if resp.status_code != 200:
+            logger.error(f"    ❌ HF {m}: {resp.status_code} — {resp.text[:200]}")
+            continue
+
+        try:
+            result = resp.json()["choices"][0]["message"]["content"].strip()
+            if result:
+                if m != model:
+                    logger.info(f"    🔄 HF fallback: dùng {m}")
+                return result
+        except (KeyError, IndexError, TypeError, ValueError):
+            continue
+
+    logger.warning("    ⚠️ Tất cả HuggingFace model thất bại")
+    return None
+
+
+# ============================================================
 # GROQ
 # ============================================================
 
@@ -492,6 +554,30 @@ def check_rewriter():
         except Exception as e:
             return False, f"Ollama: lỗi — {e}"
 
+    # ── HuggingFace ──
+    if provider == "huggingface":
+        from config import HF_API_TOKEN, HF_REWRITE_MODEL
+        token = HF_API_TOKEN
+        if not token:
+            return False, "HF_API_TOKEN chưa set"
+        try:
+            resp = requests.post(
+                f"https://router.huggingface.co/hf-inference/models/{HF_REWRITE_MODEL}/v1/chat/completions",
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                json={"model": HF_REWRITE_MODEL, "max_tokens": 10,
+                      "messages": [{"role": "user", "content": "Trả lời 'ok'."}]},
+                timeout=30,
+            )
+            if resp.status_code == 200:
+                return True, f"HuggingFace OK ({HF_REWRITE_MODEL})"
+            if resp.status_code == 401:
+                return False, "HuggingFace: API token không hợp lệ (401)"
+            if resp.status_code == 503:
+                return True, f"HuggingFace: model đang tải (503) — sẽ OK sau vài giây ({HF_REWRITE_MODEL})"
+            return False, f"HuggingFace: HTTP {resp.status_code}"
+        except Exception as e:
+            return False, f"HuggingFace: lỗi kết nối — {e}"
+
     return False, f"Provider không rõ: '{REWRITE_PROVIDER}'"
 
 
@@ -587,6 +673,7 @@ def rewrite_novel_meta(title: str, description: str) -> tuple[str, str]:
         DEEPSEEK_API_KEY, DEEPSEEK_MODEL,
         GROQ_API_KEY, GROQ_MODEL,
         OLLAMA_BASE_URL, OLLAMA_MODEL,
+        HF_API_TOKEN, HF_REWRITE_MODEL,
     )
 
     if not REWRITE_ENABLED:
@@ -608,6 +695,8 @@ def rewrite_novel_meta(title: str, description: str) -> tuple[str, str]:
             raw = rewrite_deepseek(prompt, DEEPSEEK_API_KEY, DEEPSEEK_MODEL)
         elif provider == "groq" and GROQ_API_KEY:
             raw = rewrite_groq(prompt, GROQ_API_KEY, GROQ_MODEL)
+        elif provider == "huggingface" and HF_API_TOKEN:
+            raw = rewrite_huggingface(prompt, HF_API_TOKEN, HF_REWRITE_MODEL)
         elif provider == "ollama":
             raw = rewrite_ollama(prompt, OLLAMA_BASE_URL, OLLAMA_MODEL)
     except Exception as e:
@@ -644,6 +733,7 @@ def rewrite_chapter(content, novel_title=""):  # noqa: ARG001
         DEEPSEEK_API_KEY, DEEPSEEK_MODEL,
         GROQ_API_KEY, GROQ_MODEL,
         OLLAMA_BASE_URL, OLLAMA_MODEL,
+        HF_API_TOKEN, HF_REWRITE_MODEL,
         REWRITE_CHUNK_SIZE, REWRITE_DELAY,
     )
     from config import REWRITE_CHUNK_SIZE_OLLAMA
@@ -671,6 +761,10 @@ def rewrite_chapter(content, novel_title=""):  # noqa: ARG001
 
     if provider == "groq" and not GROQ_API_KEY:
         logger.warning("    ⚠️ GROQ_API_KEY chưa set — dùng local")
+        return rewrite_local(content)
+
+    if provider == "huggingface" and not HF_API_TOKEN:
+        logger.warning("    ⚠️ HF_API_TOKEN chưa set — dùng local")
         return rewrite_local(content)
 
     if provider == "ollama":
@@ -710,6 +804,8 @@ def rewrite_chapter(content, novel_title=""):  # noqa: ARG001
                 result = rewrite_deepseek(chunk, DEEPSEEK_API_KEY, DEEPSEEK_MODEL)
             elif provider == "groq":
                 result = rewrite_groq(chunk, GROQ_API_KEY, GROQ_MODEL)
+            elif provider == "huggingface":
+                result = rewrite_huggingface(chunk, HF_API_TOKEN, HF_REWRITE_MODEL)
             elif provider == "ollama":
                 result = rewrite_ollama(chunk, OLLAMA_BASE_URL, OLLAMA_MODEL)
         except Exception as e:
