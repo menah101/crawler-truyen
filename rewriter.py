@@ -119,6 +119,11 @@ Quy tắc:
 7. Mỗi đoạn văn cách nhau một dòng trống
 8. CHỈ trả về nội dung đã viết lại, không giải thích, không tiêu đề"""
 
+try:
+    from config import GROQ_FALLBACK_MODELS as _GROQ_FALLBACK_MODELS
+except ImportError:
+    _GROQ_FALLBACK_MODELS = []
+
 GEMINI_MODELS = [
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
@@ -166,7 +171,7 @@ def rewrite_gemini(text, api_key, model):
                 if m != model:
                     logger.info(f"    🔄 Dùng {m} thay {model}")
                 return result
-        except:
+        except (KeyError, IndexError, TypeError, ValueError):
             return None
 
     logger.warning(f"    ⚠️ Tất cả Gemini model hết quota")
@@ -199,7 +204,7 @@ def rewrite_anthropic(text, api_key, model):
         return None
     try:
         return resp.json()["content"][0]["text"].strip()
-    except:
+    except (KeyError, IndexError, TypeError, ValueError):
         return None
 
 
@@ -275,9 +280,8 @@ def rewrite_ollama(text, base_url, model):
 def rewrite_groq(text, api_key, model):
     """Viết lại bằng Groq API — tự fallback khi bị rate limit (429)."""
     import requests
-    from config import GROQ_FALLBACK_MODELS
 
-    models = [model] + [m for m in GROQ_FALLBACK_MODELS if m != model]
+    models = [model] + [m for m in _GROQ_FALLBACK_MODELS if m != model]
 
     for m in models:
         try:

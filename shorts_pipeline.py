@@ -122,6 +122,7 @@ _ERA_DEFAULT_CHAR = {
 def _sentence_to_image_inline(
     sentence, headers, ratio="9:16", era="co-trang", decade="",
     character_desc="", action="", setting="", seed=None,
+    shot_type=None, scene_index=None, genre="",  # noqa: ARG001 — compat với image_generator
 ):
     """Inline fallback — không cần make-video."""
     import requests, io

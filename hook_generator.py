@@ -212,6 +212,8 @@ def _parse_output(raw: str) -> dict:
     # Fallback: nếu parse thất bại, chia hook_story thành scenes tự động
     if not scenes and hook_story:
         sentences = [s.strip() for s in re.split(r'(?<=[.!?…])\s+', hook_story) if len(s.strip()) > 20]
+        if not sentences:
+            sentences = [hook_story.strip()]
         step = max(1, len(sentences) // 7)
         # Emotion theo vị trí để image generator chọn shot type phù hợp
         _FALLBACK_EMOTIONS = ["shock", "sadness", "dramatic", "fear", "hope", "anger", "sadness"]

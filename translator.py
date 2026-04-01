@@ -192,7 +192,7 @@ def translate_chapter(text: str, novel_title: str = "") -> str:
         if provider == "gemini" and GEMINI_API_KEY:
             for model in GEMINI_TRANSLATE_MODELS:
                 result = _translate_gemini(chunk, GEMINI_API_KEY, model)
-                if result:
+                if result is not None:
                     break
         elif provider == "anthropic" and ANTHROPIC_API_KEY:
             result = _translate_anthropic(chunk, ANTHROPIC_API_KEY, ANTHROPIC_MODEL)
@@ -203,7 +203,7 @@ def translate_chapter(text: str, novel_title: str = "") -> str:
         elif provider == "ollama":
             result = _translate_ollama(chunk, OLLAMA_BASE_URL, OLLAMA_MODEL)
 
-        if result:
+        if result is not None:
             parts.append(result)
         else:
             logger.warning(f"    ⚠️ Dịch thất bại chunk {i} — giữ bản gốc tiếng Anh")
