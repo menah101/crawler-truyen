@@ -1,0 +1,12 @@
+node_modules/
+.next/
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+.env
+.env.production
+__pycache__/
+docx_output/
+label/
+logs/
