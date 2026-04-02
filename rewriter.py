@@ -625,32 +625,121 @@ _SENSITIVE_RE = re.compile(
 # Pattern tách câu: kết thúc bằng . ? ! … hoặc \n
 _SENTENCE_SPLIT_RE = re.compile(r'(?<=[.?!…])\s+|\n+')
 
+# --- Audio CTA patterns ---
+# Câu bắt đầu bằng lời kêu gọi nghe
+_AUDIO_CTA_START_RE = re.compile(
+    r'^(Hãy\s+nghe|Lắng\s+nghe|Nghe\s+tiếp|Nghe\s+truyện|Nghe\s+")',
+    re.IGNORECASE,
+)
+# Câu kết thúc bằng CTA nghe audio
+_AUDIO_CTA_END_RE = re.compile(
+    r'(để\s+biết\s+(thêm|chuyện\s+gì|câu\s+trả\s+lời|quyết\s+định|câu\s+chuyện)'
+    r'|để\s+hiểu\s+rằng'
+    r'|để\s+biết\b)[^.?!…]*[!.?…]*\s*$',
+    re.IGNORECASE,
+)
+# Toàn bộ câu là CTA nghe: "Nghe ... để biết ...!"
+_AUDIO_CTA_FULL_RE = re.compile(
+    r'^.{0,20}(Nghe|Lắng nghe|Hãy nghe)\s+".+?"\s+để\s+biết\b',
+    re.IGNORECASE,
+)
+
+# --- Emoji removal ---
+_EMOJI_RE = re.compile(
+    "["
+    "\U0001F600-\U0001F64F"   # emoticons
+    "\U0001F300-\U0001F5FF"   # symbols & pictographs
+    "\U0001F680-\U0001F6FF"   # transport & map
+    "\U0001F1E0-\U0001F1FF"   # flags
+    "\U00002702-\U000027B0"
+    "\U000024C2-\U0001F251"
+    "\U0001f900-\U0001f9FF"   # supplemental symbols
+    "\U0001fa00-\U0001fa6f"
+    "\U0001fa70-\U0001faff"
+    "\U00002600-\U000026FF"   # misc symbols
+    "\U0000FE00-\U0000FE0F"   # variation selectors
+    "\U0000200D"              # zero width joiner
+    "\U0000200B-\U0000200F"   # zero width spaces
+    "]+",
+    re.UNICODE,
+)
+
+DESC_MAX_LEN = 200
+
+
+def _is_audio_cta(sentence: str) -> bool:
+    """Kiểm tra xem câu có phải là lời kêu gọi nghe audio không."""
+    return bool(
+        _AUDIO_CTA_START_RE.search(sentence)
+        or _AUDIO_CTA_FULL_RE.search(sentence)
+        or _AUDIO_CTA_END_RE.search(sentence)
+    )
+
+
+def _truncate_at_sentence(text: str, max_len: int) -> str:
+    """Cắt text tại dấu chấm gần nhất trước max_len. Fallback: cắt cứng."""
+    if len(text) <= max_len:
+        return text
+    # Tìm dấu chấm câu cuối cùng trong phạm vi max_len
+    truncated = text[:max_len]
+    for sep in ['. ', '.\n', '.', '? ', '?', '! ', '!', '… ', '…']:
+        pos = truncated.rfind(sep)
+        if pos > max_len * 0.3:  # ít nhất 30% nội dung
+            return truncated[:pos + len(sep)].rstrip()
+    # Không tìm thấy dấu chấm → cắt tại khoảng trắng
+    pos = truncated.rfind(' ')
+    if pos > max_len * 0.3:
+        return truncated[:pos].rstrip() + '…'
+    return truncated.rstrip() + '…'
+
 
 def sanitize_description(text: str) -> str:
     """
-    Xóa các câu chứa nội dung nhạy cảm (cơ thể gợi dục, 18+) khỏi mô tả truyện.
-    Giữ nguyên các câu còn lại, join lại thành đoạn văn liền mạch.
+    Làm sạch mô tả truyện:
+    1. Xóa câu nhạy cảm (cơ thể gợi dục, 18+)
+    2. Xóa câu kêu gọi nghe audio (CTA)
+    3. Xóa emoji
+    4. Trim khoảng trắng thừa
+    5. Giới hạn 200 ký tự, cắt tại dấu chấm gần nhất
     """
     if not text:
         return text
 
+    # Bước 1+2: Lọc câu nhạy cảm và CTA audio
     sentences = _SENTENCE_SPLIT_RE.split(text)
     clean = []
-    removed = 0
+    removed_sensitive = 0
+    removed_cta = 0
     for s in sentences:
         s = s.strip()
         if not s:
             continue
         if _SENSITIVE_RE.search(s):
-            removed += 1
+            removed_sensitive += 1
             logger.debug(f"  🚫 Xóa câu nhạy cảm: {s[:80]}...")
+        elif _is_audio_cta(s):
+            removed_cta += 1
+            logger.debug(f"  🔇 Xóa CTA audio: {s[:80]}...")
         else:
             clean.append(s)
 
-    if removed:
-        logger.info(f"  🧹 sanitize_description: xóa {removed} câu nhạy cảm")
+    if removed_sensitive:
+        logger.info(f"  🧹 sanitize: xóa {removed_sensitive} câu nhạy cảm")
+    if removed_cta:
+        logger.info(f"  🔇 sanitize: xóa {removed_cta} câu CTA audio")
 
-    return ' '.join(clean)
+    result = ' '.join(clean)
+
+    # Bước 3: Xóa emoji
+    result = _EMOJI_RE.sub('', result)
+
+    # Bước 4: Trim khoảng trắng thừa
+    result = re.sub(r'\s+', ' ', result).strip()
+
+    # Bước 5: Giới hạn 200 ký tự
+    result = _truncate_at_sentence(result, DESC_MAX_LEN)
+
+    return result
 
 
 # === Novel meta rewrite ===
