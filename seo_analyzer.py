@@ -48,29 +48,45 @@ THAY THE BANG:
 HAY TAO NOI DUNG SEO CHUAN YOUTUBE. Tra ve CHINH XAC theo dinh dang sau:
 
 === TIEU DE YOUTUBE ===
-[Cong thuc bat buoc:
-【Truyện Audio】 [HOOK CAM XUC — TINH HUONG GAY TO MO] | Hồng Trần Truyện Audio
+[Ban la nguoi viet tieu de YouTube chuyen nghiep cho kenh truyen audio ngon tinh (drama, ngoai tinh, tra thu, hoi han).
+Nhiem vu: Viet tieu de sao cho nguoi xem phai TO MO va MUON BAM NGAY.
 
-Trong do:
+QUY TAC BAT BUOC:
+- KHONG viet kieu ke lai noi dung — phai giu "an y", khong tiet lo het
+- KHONG dai dong, KHONG lan man — ngan, sac, co nhip
+- Phai tao cam xuc manh: dau, soc, hoi han, bat ngo
+- Giong tieu de viral tren YouTube, KHONG giong van viet
+- Uu tien cau co 2 ve (truoc — sau), dung "..." de tao to mo
 - KHONG co ten truyen trong tieu de — ten truyen chi xuat hien trong mo ta va tags
-- [HOOK] la phan quan trong nhat — phai la 1 cau/cum tu lay tu noi dung truyen, tao cam giac tay mo. Khong duoc chung chung.
 
-Vi du tot:
-- 【Truyện Audio】 Mang cơm đến lại thấy anh ôm người khác... | Hồng Trần Truyện Audio
-- 【Truyện Audio】 Nàng ra đi rồi anh mới biết mình yêu thật sự | Hồng Trần Truyện Audio
-- 【Truyện Audio】 Kiếp trước bị phản bội — kiếp này tôi chọn mình trước | Hồng Trần Truyện Audio
-- 【Truyện Audio】 Hắn lạnh lùng suốt 3 năm, đến ngày nàng rời đi mới hoảng | Hồng Trần Truyện Audio
+FORMAT: Viet 7 tieu de, danh so 1-7, moi cai tren 1 dong.
+- Moi tieu de 8-14 tu (phan HOOK, khong tinh phan 【Truyện Audio】 va | Hồng Trần Truyện Audio)
+- It nhat 3 tieu de bat dau HOOK bang: "Tôi...", "Đêm đó...", "Ngày tôi...", "Anh..."
 
-Vi du kem (KHONG DUOC DUNG):
-- 【Truyện Audio】 Câu chuyện ngôn tình hay | Hồng Trần Truyện Audio  ← thieu hook cu the
-- 【Truyện Audio】 Truyện ngôn tình hay nhất 2025 | ... ← spam tu khoa
-- 【Truyện Audio】 Ba năm im lặng | Ly Hôn | Hồng Trần Truyện Audio  ← KHONG them ten truyen
+Cong thuc bat buoc cho MOI tieu de:
+【Truyện Audio】 [HOOK CAM XUC] | Hồng Trần Truyện Audio
+
+Vi du CHUAN (7 phong cach khac nhau):
+1. 【Truyện Audio】 Tôi mang cơm đến... lại thấy anh ôm người khác | Hồng Trần Truyện Audio
+2. 【Truyện Audio】 3 năm chờ đợi, đổi lại một tờ giấy ly hôn | Hồng Trần Truyện Audio
+3. 【Truyện Audio】 Đêm đó anh quỳ trước cửa... nhưng tôi đã khóa rồi | Hồng Trần Truyện Audio
+4. 【Truyện Audio】 Ngày tôi rời đi, anh mới biết mình đã mất gì | Hồng Trần Truyện Audio
+5. 【Truyện Audio】 Anh lạnh lùng suốt 3 năm... giờ cầu xin cũng muộn | Hồng Trần Truyện Audio
+6. 【Truyện Audio】 Kiếp trước bị phản bội, kiếp này tôi chọn mình trước | Hồng Trần Truyện Audio
+7. 【Truyện Audio】 Cô ấy im lặng rời đi... cả nhà chồng mới sụp đổ | Hồng Trần Truyện Audio
+
+Vi du kem (CAM DUNG):
+- "Câu chuyện ngôn tình hay" ← qua chung chung, khong co hook
+- "Truyện ngôn tình hay nhất 2026" ← spam tu khoa
+- "Ba năm im lặng rồi ly hôn vì chồng ngoại tình với..." ← ke lai noi dung, khong giu an y
 
 Yeu cau ky thuat:
 - Luon bat dau bang "【Truyện Audio】" (ngoac vuong, khong thay doi)
-- Hook: 8-18 chu, lay chinh xac tinh huong/cam xuc tu truyen, dung "..." hoac "—" de tao hut, tranh tu nhay cam
-- Ket thuc: "| Hồng Trần Truyện Audio" (khong doi, khong them bat cu gi vao giua)
-- Tong tieu de: DUOI 80 ky tu (bao gom ca 【Truyện Audio】 va | Hồng Trần Truyện Audio)]
+- HOOK lay tu TINH HUONG CU THE trong truyen, tranh tu nhay cam YouTube
+- Ket thuc: "| Hồng Trần Truyện Audio" (khong doi)
+- Tong moi tieu de: DUOI 80 ky tu (bao gom tat ca)
+- 7 tieu de phai KHAC NHAU ve goc nhin va cam xuc
+- Chi liet ke tieu de, KHONG giai thich]
 
 === MO TA YOUTUBE ===
 [Cau truc chuan — QUAN TRONG: 2 dong dau hien truoc nut "Xem them" phai chua tu khoa va cam xuc:
@@ -79,7 +95,7 @@ DONG 1 (hook + tu khoa, toi da 100 ky tu):
 [TINH HUONG CHINH gay mo — lay tu noi dung truyen] | Nghe [Ten truyen] audio mien phi tren kenh {channel}.
 
 DONG 2 (tu khoa SEO):
-Truyen [the loai] hay | [Ten truyen] full bo | Cap nhat moi nhat 2025
+Truyen [the loai] hay | [Ten truyen] full bo | Cap nhat moi nhat 2026
 
 DOAN 1 — Tom tat co cam xuc (3-4 cau):
 [Mo ta nhan vat chinh + mau thuan + cam xuc chinh — dung ngon ngu truyen audio Viet Nam, co tu khoa: ten truyen, the loai, tinh cam/hanh dong noi bat]
@@ -102,7 +118,7 @@ HASHTAG (5 cai cuoi mo ta):
 3. The loai chinh co dau, khong dau
 4. Tu khoa chung: truyện audio, nghe truyện, truyện hay, truyện full bộ, truyện audio việt nam
 5. Dac diem noi bat: xuyen khong, trong sinh, nu cuong, HE, BE, nguoc tam, ngot ngao...
-6. Tu khoa trending: truyen [the loai] hay nhat 2025, truyen [the loai] moi nhat
+6. Tu khoa trending: truyen [the loai] hay nhat 2026, truyen [the loai] moi nhat
 Tat ca cach nhau dau phay, khong co #, tong khong qua 500 ky tu]
 
 === TOM TAT (dung cho pinned comment) ===
@@ -318,32 +334,41 @@ def analyze_novel_seo(
     ).strip()
 
     # 2. Dam bao tieu de khong co ten truyen va duoi 80 ky tu
-    #    Nhan dang dong: # 【Truyện Audio】 ... | TEN_TRUYEN | Hồng Trần Truyện Audio
-    #    Xoa phan "| TEN_TRUYEN" neu co 2 dau "|" trong tieu de
-    def _fix_title(line: str) -> str:
-        prefix = '# 【Truyện Audio】'
-        if not line.startswith(prefix):
-            return line
-        parts = [p.strip() for p in line[2:].split('|')]
-        # Giu lai phan dau (hook) va phan cuoi (Hồng Trần Truyện Audio)
-        # Xoa bat ky phan trung gian nao (ten truyen)
+    #    Xoa phan "| TEN_TRUYEN" neu co 2+ dau "|" trong tieu de
+    _SUFFIX = ' | Hồng Trần Truyện Audio'
+    _MAX_HOOK = 80 - len('【Truyện Audio】') - len(_SUFFIX)
+
+    def _fix_title_line(text: str) -> str:
+        """Fix 1 dong tieu de (co hoac khong co prefix '# ' hoac '1. ')."""
+        # Trim prefix danh so: "1. ", "2. ", "# " ...
+        stripped = text
+        prefix_part = ''
+        if _re.match(r'^\d+\.\s+', stripped):
+            m = _re.match(r'^(\d+\.\s+)', stripped)
+            prefix_part = m.group(1)
+            stripped = stripped[len(prefix_part):]
+        elif stripped.startswith('# '):
+            prefix_part = '# '
+            stripped = stripped[2:]
+
+        if '【Truyện Audio】' not in stripped:
+            return text
+
+        parts = [p.strip() for p in stripped.split('|')]
+        # Giu phan dau (hook) va phan cuoi (Hồng Trần Truyện Audio)
         if len(parts) >= 3:
-            line = '# ' + parts[0] + ' | ' + parts[-1]
-        # Cat ngan neu qua 80 ky tu (bao gom "# ")
-        title_text = line[2:]  # bo "# "
-        if len(title_text) > 80:
-            # Cat hook cho ngan lai
-            hook_end = title_text.rfind(' | Hồng Trần Truyện Audio')
+            stripped = parts[0] + _SUFFIX
+        # Cat ngan neu qua 80 ky tu
+        if len(stripped) > 80:
+            hook_end = stripped.rfind(_SUFFIX)
             if hook_end > 0:
-                hook = title_text[:hook_end].rstrip('.')
-                max_hook = 80 - len(' | Hồng Trần Truyện Audio')
-                hook = hook[:max_hook].rstrip()
-                title_text = hook + ' | Hồng Trần Truyện Audio'
-            line = '# ' + title_text
-        return line
+                hook = stripped[:hook_end].rstrip('. ')
+                hook = hook[:_MAX_HOOK].rstrip()
+                stripped = hook + _SUFFIX
+        return prefix_part + stripped
 
     lines = result.split('\n')
-    lines = [_fix_title(l) if l.startswith('# 【') else l for l in lines]
+    lines = [_fix_title_line(l) if '【Truyện Audio】' in l else l for l in lines]
     result = '\n'.join(lines)
 
     os.makedirs(output_dir, exist_ok=True)

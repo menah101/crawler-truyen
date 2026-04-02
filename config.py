@@ -32,7 +32,7 @@ REQUEST_DELAY = 1.5
 
 # === Rewriter thứ tự model được yêu tiên ===
 REWRITE_ENABLED = True
-REWRITE_PROVIDER = "anthropic"    # 1."anthropic" | 2."gemini" | 3."deepseek" | 4."groq" | 5."huggingface" | 6."ollama" | 7."local"
+REWRITE_PROVIDER = "ollama"    # 1."anthropic" | 2."gemini" | 3."deepseek" | 4."groq" | 5."huggingface" | 6."ollama" | 7."local"
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
