@@ -84,7 +84,7 @@ Yeu cau ky thuat:
 - Luon bat dau bang "【Truyện Audio】" (ngoac vuong, khong thay doi)
 - HOOK lay tu TINH HUONG CU THE trong truyen, tranh tu nhay cam YouTube
 - Ket thuc: "| Hồng Trần Truyện Audio" (khong doi)
-- Tong moi tieu de: DUOI 80 ky tu (bao gom tat ca)
+- Tong moi tieu de: DUOI 100 ky tu (bao gom tat ca)
 - 7 tieu de phai KHAC NHAU ve goc nhin va cam xuc
 - Chi liet ke tieu de, KHONG giai thich]
 
@@ -333,10 +333,12 @@ def analyze_novel_seo(
         '', result, flags=_re.DOTALL | _re.IGNORECASE,
     ).strip()
 
-    # 2. Dam bao tieu de khong co ten truyen va duoi 80 ky tu
+    # 2. Dam bao tieu de khong co ten truyen va duoi 100 ky tu (YouTube limit)
     #    Xoa phan "| TEN_TRUYEN" neu co 2+ dau "|" trong tieu de
+    _TITLE_MAX = 100
     _SUFFIX = ' | Hồng Trần Truyện Audio'
-    _MAX_HOOK = 80 - len('【Truyện Audio】') - len(_SUFFIX)
+    _PREFIX = '【Truyện Audio】'
+    _MAX_HOOK = _TITLE_MAX - len(_PREFIX) - len(_SUFFIX)  # ~60 ky tu cho hook
 
     def _fix_title_line(text: str) -> str:
         """Fix 1 dong tieu de (co hoac khong co prefix '# ' hoac '1. ')."""
@@ -351,19 +353,26 @@ def analyze_novel_seo(
             prefix_part = '# '
             stripped = stripped[2:]
 
-        if '【Truyện Audio】' not in stripped:
+        if _PREFIX not in stripped:
             return text
 
         parts = [p.strip() for p in stripped.split('|')]
         # Giu phan dau (hook) va phan cuoi (Hồng Trần Truyện Audio)
         if len(parts) >= 3:
             stripped = parts[0] + _SUFFIX
-        # Cat ngan neu qua 80 ky tu
-        if len(stripped) > 80:
+        # Cat ngan neu qua 100 ky tu — cat tai khoang trang, khong cat giua tu
+        if len(stripped) > _TITLE_MAX:
             hook_end = stripped.rfind(_SUFFIX)
             if hook_end > 0:
                 hook = stripped[:hook_end].rstrip('. ')
-                hook = hook[:_MAX_HOOK].rstrip()
+                if len(hook) > _MAX_HOOK:
+                    # Tim khoang trang gan nhat truoc _MAX_HOOK
+                    cut = hook[:_MAX_HOOK].rfind(' ')
+                    if cut > len(_PREFIX):
+                        hook = hook[:cut].rstrip('.,;:!? ')
+                    else:
+                        hook = hook[:_MAX_HOOK].rstrip()
+                    hook += '...'
                 stripped = hook + _SUFFIX
         return prefix_part + stripped
 
