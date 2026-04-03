@@ -29,6 +29,11 @@ THONG TIN TRUYEN:
 {sample}
 ---
 
+== QUY TAC NGON NGU — BAT BUOC ==
+- Tat ca noi dung (tieu de, mo ta, tags, tom tat) phai viet bang TIENG VIET CO DAU.
+- TUYET DOI KHONG dung tieng Trung, tieng Anh, hay bat ky ngon ngu nao khac.
+- Neu trich doan co chua tieng nuoc ngoai, hay DICH SANG TIENG VIET truoc khi dung.
+
 == QUY TAC TUYET DOI — TRANH TU NHAY CAM ==
 Tat ca noi dung (tieu de, mo ta, tags) TUYET DOI KHONG chua cac tu/cum tu sau vi YouTube se han che hien thi hoac danh dau vi pham chinh sach:
 
@@ -323,6 +328,17 @@ def analyze_novel_seo(
     # ── Post-processing ────────────────────────────────────────────
     import re as _re
 
+    # 0. Xoa ky tu Trung/Nhat/Han (giu lai phan tieng Viet trong dong)
+    _CJK_RE = _re.compile(r'[\u4e00-\u9fff\u3400-\u4dbf\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]+')
+    if _CJK_RE.search(result):
+        result = _CJK_RE.sub('', result)
+        # Don dep khoang trang thua sau khi xoa CJK
+        result = _re.sub(r'  +', ' ', result)
+        result = _re.sub(r'^ +| +$', '', result, flags=_re.MULTILINE)
+        # Xoa dong trong thua
+        result = _re.sub(r'\n{3,}', '\n\n', result)
+        logger.info("  🈲 SEO: da xoa ky tu Trung/Nhat/Han")
+
     # 1. Xoa phan THUMBNAIL neu AI van sinh ra (safety net)
     result = _re.sub(
         r'={3}\s*THUMBNAIL\s*={3}.*?(?=={3}|\Z)',
@@ -403,6 +419,12 @@ def analyze_novel_seo(
 
 SHORTS_SEO_PROMPT = """Ban la chuyen gia marketing noi dung cho TikTok va YouTube Shorts, chuyen trang truyen audio Viet Nam.
 
+== QUY TAC NGON NGU — BAT BUOC ==
+- Tat ca noi dung phai viet bang TIENG VIET CO DAU.
+- TUYET DOI KHONG dung tieng Trung, tieng Anh, hay bat ky ngon ngu nao khac trong caption, title, description.
+- Neu hook story co chua tieng Trung/tieng nuoc ngoai, hay DICH SANG TIENG VIET truoc khi dung.
+- Ten nhan vat giu nguyen (phien am Viet), khong viet bang chu Han.
+
 Duoi day la hook story (script doc) cua video Shorts:
 ---
 {hook_story}
@@ -412,7 +434,7 @@ Ten truyen: {title}
 The loai: {genres}
 Kenh: {channel}
 
-Nhiem vu: Tao SEO caption va hashtag toi uu cho TIKTOK va YOUTUBE SHORTS.
+Nhiem vu: Tao SEO caption va hashtag toi uu cho TIKTOK va YOUTUBE SHORTS. VIET TOAN BO BANG TIENG VIET.
 
 === TIKTOK CAPTION ===
 [Cau truc: 3 phan, tong toi da 2200 ky tu]
@@ -476,6 +498,60 @@ def analyze_shorts_seo(
     if not result:
         logger.warning("  AI khong tra ve ket qua Shorts SEO.")
         return None
+
+    # Post-processing
+    import re as _re2
+
+    # 1. Xoa ky tu Trung/Nhat/Han (giu phan tieng Viet)
+    _CJK_RE = _re2.compile(r'[\u4e00-\u9fff\u3400-\u4dbf\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]+')
+    if _CJK_RE.search(result):
+        result = _CJK_RE.sub('', result)
+        result = _re2.sub(r'  +', ' ', result)
+        result = _re2.sub(r'^ +| +$', '', result, flags=_re2.MULTILINE)
+        result = _re2.sub(r'\n{3,}', '\n\n', result)
+        logger.info("  🈲 Shorts SEO: da xoa ky tu Trung/Nhat/Han")
+
+    # 2. Fix Shorts title — xoa ten truyen thua, gioi han 100 ky tu
+    _SHORTS_SUFFIX = ' | Hồng Trần Truyện Audio'
+    def _fix_shorts_title(line: str) -> str:
+        # Tim phan trong ngoac kep hoac ngoac vuong
+        m = _re2.search(r'["\[](.*?)["\]]', line)
+        if not m:
+            return line
+        raw = m.group(1).strip()
+        parts = [p.strip() for p in raw.split('|')]
+        if len(parts) >= 3:
+            # Giu hook (phan dau) + suffix (phan cuoi), xoa ten truyen (giua)
+            raw = parts[0] + ' | ' + parts[-1]
+        elif len(parts) == 2 and 'Hồng Trần' not in parts[-1]:
+            # hook | ten truyen — them suffix
+            raw = parts[0] + _SHORTS_SUFFIX
+        elif len(parts) == 1:
+            raw = parts[0] + _SHORTS_SUFFIX
+        # Gioi han 100 ky tu
+        if len(raw) > 100:
+            suffix_pos = raw.rfind(_SHORTS_SUFFIX)
+            if suffix_pos > 0:
+                hook = raw[:suffix_pos].rstrip('. ')
+                max_hook = 100 - len(_SHORTS_SUFFIX)
+                if len(hook) > max_hook:
+                    cut = hook[:max_hook].rfind(' ')
+                    if cut > 10:
+                        hook = hook[:cut].rstrip('.,;:!? ') + '...'
+                    else:
+                        hook = hook[:max_hook].rstrip() + '...'
+                raw = hook + _SHORTS_SUFFIX
+        return raw
+    lines = result.split('\n')
+    in_shorts_title = False
+    for i, line in enumerate(lines):
+        if 'YOUTUBE SHORTS TITLE' in line.upper():
+            in_shorts_title = True
+            continue
+        if in_shorts_title and line.strip():
+            lines[i] = _fix_shorts_title(line)
+            in_shorts_title = False
+    result = '\n'.join(lines)
 
     os.makedirs(shorts_dir, exist_ok=True)
     out_path = os.path.join(shorts_dir, 'seo_shorts.txt')

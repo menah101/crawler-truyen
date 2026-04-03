@@ -229,7 +229,7 @@ def _generate_images_with_confirm(title, genres_str, chapters, docx_paths, auto=
         return
 
     if not auto and sys.stdin.isatty():
-        choice = input("\n🖼️  Bạn có muốn tạo 10 thumbnail 16:9 cho truyện này không? [Y/n]: ").strip().lower()
+        choice = input("\n🖼️  Bạn có muốn tạo 20 thumbnail 16:9 cho truyện này không? [Y/n]: ").strip().lower()
         if choice not in ('', 'y', 'yes'):
             print("⏭️  Bỏ qua — thumbnail chưa được tạo.")
             return
