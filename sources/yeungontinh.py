@@ -131,7 +131,8 @@ class YeunGoNTinh(BaseSource):
         soup = self._soup(url)
         if not soup:
             return ''
-        div = soup.find('div', class_='page-description')
+        # Hỗ trợ cả hai class (tuỳ phiên bản trang)
+        div = soup.find('div', class_='story-content') or soup.find('div', class_='page-description')
         if not div:
             return ''
         for el in div.find_all(['script', 'style', 'iframe', 'button']):
@@ -139,10 +140,19 @@ class YeunGoNTinh(BaseSource):
         for el in div.find_all('div', class_='w2w_read_more'):
             el.decompose()
         paras = []
+        # Thử tìm trong thẻ <p> trước
         for p in div.find_all('p'):
             text = p.get_text(strip=True)
             text = re.sub(r'^\d+[.)]\s*$', '', text)
             text = re.sub(r'^\d+$', '', text).strip()
             if text:
                 paras.append(text)
+        # Nếu không có <p>, lấy từ thẻ <div> con (trang dùng <div> thay <p>)
+        if not paras:
+            for child in div.find_all('div', recursive=False):
+                text = child.get_text(strip=True)
+                text = re.sub(r'^\d+[.)]\s*$', '', text)
+                text = re.sub(r'^\d+$', '', text).strip()
+                if text:
+                    paras.append(text)
         return '\n\n'.join(paras)

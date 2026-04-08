@@ -40,7 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from config import (CRAWL_SCHEDULE, REQUEST_DELAY, GENRE_MAP, IMPORT_MODE,
                     DOCX_EXPORT_ENABLED, DOCX_OUTPUT_DIR, DOCX_CHANNEL_NAME,
                     SRT_DURATION_PER_LINE, SRT_WORDS_PER_SECOND,
-                    HF_API_TOKEN, HF_IMAGE_RATIO)
+                    HF_API_TOKEN, HF_IMAGE_RATIO, COVER_ENABLED)
                     # SRT_EXPORT_ENABLED — tạm comment vì chức năng SRT đã tắt
 
 # ── Thư mục output có ngày — VD: docx_output/2026-03-25/ ─────────
@@ -209,6 +209,45 @@ def _ask_era(current_era: str, current_decade: str = "") -> tuple:
     era_label = {"co-trang": "CỔ TRANG", "hien-dai": "HIỆN ĐẠI", "thap-nien": "THẬP NIÊN"}.get(era, era.upper())
     print(f"   ✅ Era: [{era_label}]{f' ({decade})' if decade else ''}")
     return era, decade
+
+
+def _generate_cover(title, description, genres_str, chapters, docx_paths):
+    """Tạo ảnh bìa (cover) cho truyện — 16:9, < 200KB."""
+    if not COVER_ENABLED:
+        return None
+
+    if not HF_API_TOKEN:
+        logger.info("  ⚠️ HF_API_TOKEN chưa cấu hình — bỏ qua tạo cover")
+        return None
+
+    from cover_generator import generate_cover
+
+    # Xác định output path
+    if docx_paths:
+        novel_dir = os.path.dirname(docx_paths[0])
+    else:
+        from docx_exporter import _slugify
+        novel_dir = os.path.join(_get_today_dir(), _slugify(title))
+
+    output_path = os.path.join(novel_dir, 'cover.jpg')
+
+    # Nếu cover đã tồn tại → bỏ qua
+    if os.path.exists(output_path):
+        logger.info(f"  🎨 Cover đã có: {output_path}")
+        return output_path
+
+    try:
+        result = generate_cover(
+            title=title,
+            description=description,
+            genres_str=genres_str,
+            chapters=chapters,
+            output_path=output_path,
+        )
+        return result
+    except Exception as e:
+        logger.error(f"  ❌ Cover generation error: {e}")
+        return None
 
 
 def _generate_images_with_confirm(title, genres_str, chapters, docx_paths, auto=False):
@@ -711,6 +750,12 @@ def crawl_novel_api(url, source_name=DEFAULT_SOURCE, max_chapters=0, chapter_fil
     _generate_images_with_confirm(title, genres_str, chapters, docx_paths, auto=auto_images)
     _generate_shorts_with_confirm(title, author, genres_str, chapters, docx_paths, auto=auto_shorts)
 
+    # Tạo cover AI nếu nguồn không có ảnh bìa
+    cover_path = None
+    source_cover = info.get('cover_image', '')
+    if not source_cover and COVER_ENABLED:
+        cover_path = _generate_cover(title, desc, genres_str, chapters, docx_paths)
+
     novel_data = {
         'title':       title,
         'author':      author,
@@ -719,7 +764,7 @@ def crawl_novel_api(url, source_name=DEFAULT_SOURCE, max_chapters=0, chapter_fil
         'tags':        tags_str,
         'status':      info.get('status', 'completed'),
         'source_url':  url.rstrip('/'),
-        'cover_image': info.get('cover_image', ''),
+        'cover_image': source_cover or (cover_path if cover_path else ''),
     }
 
     try:
@@ -1143,6 +1188,10 @@ if __name__ == '__main__':
                    help='Tạo nội dung TikTok/YouTube Shorts: hook story + ảnh từng scene')
     p.add_argument('--shorts-only', type=str, metavar='KEYWORD',
                    help='Chỉ tạo Shorts (hook story + ảnh) cho truyện đã có trong DB (không crawl lại)')
+    p.add_argument('--cover-only', type=str, metavar='KEYWORD',
+                   help='Chỉ tạo ảnh bìa (cover) cho truyện đã có trong DB (không crawl lại)')
+    p.add_argument('--cover-from-dir', type=str, metavar='CHAPTERS_DIR',
+                   help='Tạo cover từ thư mục chapters/*.json đã có. VD: --cover-from-dir docx_output/2026-04-08/ten-truyen/chapters')
     p.add_argument('--from-dir', type=str, metavar='NOVEL_DIR',
                    help='Tạo Shorts/Thumbnail từ thư mục truyện đã có (chapters/*.json). Dùng kèm --shorts và/hoặc --images. VD: --from-dir docx_output/2026-03-26/ten-truyen --shorts --images')
     p.add_argument('--shorts-seo', type=str, metavar='SHORTS_DIR',
@@ -1248,6 +1297,56 @@ if __name__ == '__main__':
 
         print(f"🖼️  Tạo thumbnail cho: {title}  ({len(ch_list)} chương)")
         _generate_images_with_confirm(title, genres_str, ch_list, docx_paths, auto=True)
+        sys.exit(0)
+
+    # ── Cover only (từ DB, không crawl lại) ─────────────────────
+    if args.cover_only:
+        from db_helper import get_connection, get_novel_with_chapters
+
+        conn = get_connection()
+        novel, chapters = get_novel_with_chapters(conn, args.cover_only)
+        conn.close()
+
+        if not novel:
+            print(f"❌ Không tìm thấy truyện khớp với: '{args.cover_only}'")
+            sys.exit(1)
+
+        title       = novel['title']
+        description = novel.get('description', '')
+        genres_str  = novel.get('genres', '')
+        ch_list     = [dict(c) for c in chapters]
+        novel_dir   = _find_novel_dir(title)
+        docx_paths  = []
+        if novel_dir:
+            docx_paths = [
+                os.path.join(novel_dir, f)
+                for f in os.listdir(novel_dir)
+                if f.endswith('.docx')
+            ]
+
+        print(f"🎨 Tạo cover cho: {title}")
+        cover_path = _generate_cover(title, description, genres_str, ch_list, docx_paths)
+        if cover_path:
+            print(f"✅ Cover đã lưu: {cover_path}")
+        else:
+            print("❌ Không tạo được cover")
+        sys.exit(0)
+
+    # ── Cover from dir (từ thư mục chapters/*.json) ──────────────
+    if args.cover_from_dir:
+        from cover_generator import generate_cover_from_dir
+
+        chapters_dir = args.cover_from_dir
+        # Nếu trỏ đến thư mục truyện (không phải chapters/), tự thêm /chapters
+        if not chapters_dir.endswith('chapters') and os.path.isdir(os.path.join(chapters_dir, 'chapters')):
+            chapters_dir = os.path.join(chapters_dir, 'chapters')
+
+        print(f"🎨 Tạo cover từ: {chapters_dir}")
+        cover_path = generate_cover_from_dir(chapters_dir)
+        if cover_path:
+            print(f"✅ Cover đã lưu: {cover_path}")
+        else:
+            print("❌ Không tạo được cover")
         sys.exit(0)
 
     # ── Shorts only (từ DB, không crawl lại) ─────────────────────

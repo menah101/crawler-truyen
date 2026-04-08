@@ -19,9 +19,10 @@ Công cụ tự động tải truyện, viết lại bằng AI, và tạo nội 
 10. [Sắp xếp thư mục theo ngày](#10-sắp-xếp-thư-mục-theo-ngày)
 11. [Watchlist — theo dõi truyện](#11-watchlist--theo-dõi-truyện)
 12. [Quản lý database](#12-quản-lý-database)
-13. [Cấu trúc thư mục output](#13-cấu-trúc-thư-mục-output)
-14. [Sơ đồ luồng hoàn chỉnh](#14-sơ-đồ-luồng-hoàn-chỉnh)
-15. [Lệnh tham khảo nhanh](#lệnh-tham-khảo-nhanh)
+13. [Tạo ảnh bìa (Cover)](#13-tạo-ảnh-bìa-cover)
+14. [Cấu trúc thư mục output](#14-cấu-trúc-thư-mục-output)
+15. [Sơ đồ luồng hoàn chỉnh](#15-sơ-đồ-luồng-hoàn-chỉnh)
+16. [Lệnh tham khảo nhanh](#lệnh-tham-khảo-nhanh)
 
 ---
 
@@ -595,7 +596,75 @@ python crawler/normalize_descriptions.py --apply
 
 ---
 
-## 13. Cấu trúc thư mục output
+## 13. Tạo ảnh bìa (Cover)
+
+Tự động tạo ảnh bìa cho truyện bằng AI + FLUX.1-schnell khi nguồn không có ảnh bìa.
+
+### Quy trình
+
+1. AI phân tích truyện (mô tả + 3 chương đầu) → xác định nhân vật, xung đột, cao trào, cảm xúc
+2. Tạo 3 prompt theo 3 thể loại: **Hiện đại** / **Hiện đại thập niên** / **Cổ trang**
+3. Tự chọn prompt phù hợp với genre của truyện
+4. FLUX.1-schnell tạo ảnh **9:16 dọc** (768×1344 — phù hợp bìa truyện)
+5. Nén JPEG < 200KB
+
+### Phong cách & bố cục
+
+- **Phong cách châu Á** — C-drama, K-drama, phim Việt Nam, manhwa, donghua
+- **Nhân vật Á Đông** — mắt hạnh nhân, da trắng ngần, tóc đen, gương mặt thanh tú
+- **Bố cục đa dạng** — AI tự chọn kiểu phù hợp nội dung truyện:
+
+| Kiểu bố cục | Mô tả |
+|---|---|
+| Chân dung cảm xúc | Close-up gương mặt, cảm xúc mãnh liệt |
+| Đối đầu | 2 nhân vật đối mặt, ánh mắt căng thẳng |
+| Lưng quay | Bóng dáng cô đơn bước đi trong bối cảnh rộng |
+| Ôm ấp / bảo vệ | Khoảnh khắc thân mật, bám víu tuyệt vọng |
+| Cô đơn giữa cảnh rộng | Nhân vật nhỏ bé giữa cung điện / thành phố / mưa |
+| Bí ẩn | Nửa sáng nửa tối, gương mặt bị che khuất |
+| Phản bội | Foreground đau đớn + background lạnh lùng bước đi |
+| Hồi ức | Hiện tại mờ ảo lồng ghép quá khứ hạnh phúc |
+| Nguy hiểm | Tình huống căng thẳng (mưa bão, lửa, vực thẳm) |
+
+### Cách dùng
+
+```bash
+# Tự động khi crawl (nếu nguồn không có cover)
+python run.py --url "URL" --seo --images --shorts
+
+# Tạo cover cho truyện đã có trong DB
+python run.py --cover-only "tên truyện"
+
+# Tạo cover từ thư mục chapters/*.json (không cần DB)
+python run.py --cover-from-dir docx_output/2026-04-08/ten-truyen/chapters
+python run.py --cover-from-dir docx_output/2026-04-08/ten-truyen   # tự tìm chapters/
+
+# Tắt cover generation
+COVER_ENABLED=false python run.py --url "URL"
+```
+
+### Cấu hình (.env)
+
+```env
+# Bật/tắt tạo cover (mặc định: bật)
+COVER_ENABLED=true
+
+# HuggingFace token (dùng chung với thumbnail)
+HF_API_TOKEN=hf_...
+```
+
+### AI fallback
+
+Cover generator dùng AI để phân tích truyện theo thứ tự ưu tiên:
+1. **Gemini** (GEMINI_API_KEY) — nhanh, chất lượng tốt
+2. **HuggingFace** (HF_API_TOKEN + Llama) — fallback khi Gemini hết quota
+3. **Prompt mặc định** — random từ pool đa dạng bố cục, fallback cuối cùng khi không có AI
+
+File output: `docx_output/YYYY-MM-DD/ten-truyen/cover.jpg`
+
+---
+
+## 14. Cấu trúc thư mục output
 
 Sau khi chạy đầy đủ pipeline, thư mục 1 truyện trông như sau:
 
@@ -606,6 +675,7 @@ docx_output/
       │
       ten-truyen.docx           ← Truyện đã viết lại (dùng làm TTS)
       seo.txt                   ← Tiêu đề + mô tả + hashtag + URL YouTube
+      cover.jpg                 ← Ảnh bìa 16:9 (< 200KB, AI-generated)
       │
       thumbnails/               ← 30 ảnh 16:9 (1344×768) cho video long-form
       │   thumb_01_wide.jpg
@@ -628,7 +698,7 @@ docx_output/
 
 ---
 
-## 14. Sơ đồ luồng hoàn chỉnh
+## 15. Sơ đồ luồng hoàn chỉnh
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -640,7 +710,8 @@ docx_output/
 │         ├── Xuất DOCX → ten-truyen.docx                     │
 │         ├── Phân tích SEO → seo.txt  (+ URL đọc truyện)    │
 │         ├── Tạo 30 thumbnail 16:9 → thumbnails/            │
-│         └── Tạo hook story + 8 ảnh → shorts/               │
+│         ├── Tạo hook story + 8 ��nh → shorts/               │
+│         └── Tạo ảnh bìa AI → cover.jpg (nếu nguồn không có)│
 └─────────────────────────────────────────────────────────────┘
          │
          ▼
@@ -709,6 +780,10 @@ python merge_video.py long --latest --per-image 10 --zoom alternate --subtitle -
 # ── Tạo lại Shorts SEO (TikTok + YouTube Shorts) ──────────────
 python run.py --shorts-seo docx_output/YYYY-MM-DD/ten-truyen/shorts
 
+# ── Tạo ảnh bìa (cover) ──────────────────────────────────────
+python run.py --cover-only "hanh phuc do toi tu tao"     # tạo cover từ DB
+python run.py --cover-from-dir docx_output/2026-04-08/ten-truyen/chapters  # từ thư mục JSON
+
 # ── Truyện cũ đã có DOCX — tạo lại thumbnail / shorts không crawl ──
 python run.py --images-only "hanh phuc do toi tu tao"    # tạo lại thumbnail 16:9
 python run.py --shorts-only "hanh phuc do toi tu tao"    # tạo lại hook story + ảnh shorts
@@ -731,6 +806,7 @@ python run.py --shorts-only "hanh phuc do toi tu tao"    # tạo lại hook stor
 | `merge_video.py` | Ghép ảnh + MP3 → video MP4 (shorts & long) |
 | `organize.py` | Sắp xếp thư mục output theo ngày |
 | `watchlist.py` | Theo dõi truyện cập nhật chương mới |
+| `cover_generator.py` | Tạo ảnh bìa (cover) bằng AI + FLUX |
 | `db_helper.py` | Thao tác với database SQLite |
 | `srt_exporter.py` | Chuyển DOCX → phụ đề SRT |
 | `label/` | Thư mục chứa PNG/MP4 để overlay lên video |

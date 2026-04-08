@@ -1,12 +1,12 @@
 """
-seo_analyzer.py — Phan tich truyen va tao thong tin SEO cho YouTube.
+seo_analyzer.py — Phân tích truyện và tạo thông tin SEO cho YouTube.
 
-Dau vao: ten truyen, tac gia, the loai, noi dung vai chuong dau.
-Dau ra: file seo.txt luu trong thu muc cua truyen, bao gom:
-  - Tieu de YouTube (hook cam xuc + kenh, DUOI 80 ky tu, KHONG co ten truyen)
-  - Mo ta YouTube (keyword-rich, chuan SEO)
-  - Tags / tu khoa (~500 ky tu)
-  - Tom tat ngan (pinned comment)
+Đầu vào: tên truyện, tác giả, thể loại, nội dung vài chương đầu.
+Đầu ra: file seo.txt lưu trong thư mục của truyện, bao gồm:
+  - Tiêu đề YouTube (hook cảm xúc + kênh, DƯỚI 80 ký tự, KHÔNG có tên truyện)
+  - Mô tả YouTube (keyword-rich, chuẩn SEO)
+  - Tags / từ khoá (~500 ký tự)
+  - Tóm tắt ngắn (pinned comment)
 """
 
 import os
@@ -14,64 +14,64 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# So ky tu lay tu noi dung truyen de AI phan tich
+# Số ký tự lấy từ nội dung truyện để AI phân tích
 _SAMPLE_CHARS = 3000
 
-SEO_PROMPT_TEMPLATE = """Ban la chuyen gia SEO YouTube hang dau cho kenh truyen audio tieng Viet.
-Ban hieu sau thuat toan YouTube: CTR (click-through rate), watch time, keyword density, va cach rank video len top search.
+SEO_PROMPT_TEMPLATE = """Bạn là chuyên gia SEO YouTube hàng đầu cho kênh truyện audio tiếng Việt.
+Bạn hiểu sâu thuật toán YouTube: CTR (click-through rate), watch time, keyword density, và cách rank video lên top search.
 
-THONG TIN TRUYEN:
-- Ten truyen : {title}
-- Tac gia    : {author}
-- The loai   : {genres}
-- Trich doan :
+THÔNG TIN TRUYỆN:
+- Tên truyện : {title}
+- Tác giả    : {author}
+- Thể loại   : {genres}
+- Trích đoạn :
 ---
 {sample}
 ---
 
-== QUY TAC NGON NGU — BAT BUOC ==
-- Tat ca noi dung (tieu de, mo ta, tags, tom tat) phai viet bang TIENG VIET CO DAU.
-- TUYET DOI KHONG dung tieng Trung, tieng Anh, hay bat ky ngon ngu nao khac.
-- Neu trich doan co chua tieng nuoc ngoai, hay DICH SANG TIENG VIET truoc khi dung.
+== QUY TẮC NGÔN NGỮ — BẮT BUỘC ==
+- Tất cả nội dung (tiêu đề, mô tả, tags, tóm tắt) phải viết bằng TIẾNG VIỆT CÓ DẤU.
+- TUYỆT ĐỐI KHÔNG dùng tiếng Trung, tiếng Anh, hay bất kỳ ngôn ngữ nào khác.
+- Nếu trích đoạn có chứa tiếng nước ngoài, hãy DỊCH SANG TIẾNG VIỆT trước khi dùng.
 
-== QUY TAC TUYET DOI — TRANH TU NHAY CAM ==
-Tat ca noi dung (tieu de, mo ta, tags) TUYET DOI KHONG chua cac tu/cum tu sau vi YouTube se han che hien thi hoac danh dau vi pham chinh sach:
+== QUY TẮC TUYỆT ĐỐI — TRÁNH TỪ NHẠY CẢM ==
+Tất cả nội dung (tiêu đề, mô tả, tags) TUYỆT ĐỐI KHÔNG chứa các từ/cụm từ sau vì YouTube sẽ hạn chế hiển thị hoặc đánh dấu vi phạm chính sách:
 
-TU GAY DEMON/GIOI HAN:
-- Liet ke tu noi dung bao luc: giet, chet, mau, tan sat, hanh ha, tra tan, tu tu, tu sat
-- Tu noi dung 18+: canh nong, goi cam, khieu goi, nuoc doi, tinh duc, giac ngu, lo hang
-- Tu chinh tri/ton giao nhay cam bat ky
-- Tu dan toc/phan biet doi xu
+TỪ GÂY DEMONETIZE/GIỚI HẠN:
+- Từ nội dung bạo lực: giết, chết, máu, tàn sát, hành hạ, tra tấn, tự tử, tự sát
+- Từ nội dung 18+: cảnh nóng, gợi cảm, khiêu gợi, nước đôi, tình dục, giấc ngủ, lộ hàng
+- Từ chính trị/tôn giáo nhạy cảm bất kỳ
+- Từ dân tộc/phân biệt đối xử
 
-THAY THE BANG:
-- "chet" → "ra di", "tu tran", "khong con nua", "la xa"
-- "giet" → "hai", "loai bo", "tranh khoi", "xu ly"
-- "dau kho qua muc" → "trai long", "vo long", "tan nat con tim"
-- "canh nong" → "cam xuc sau sac", "moment dac biet", "chuyen dong long"
-- Tat ca hook cam xuc phai the hien qua hanh dong/tinh huong, khong dung tu truc tiep
+THAY THẾ BẰNG:
+- "chết" → "ra đi", "từ trần", "không còn nữa", "lìa xa"
+- "giết" → "hại", "loại bỏ", "tránh khỏi", "xử lý"
+- "đau khổ quá mức" → "trải lòng", "vỡ lòng", "tan nát con tim"
+- "cảnh nóng" → "cảm xúc sâu sắc", "khoảnh khắc đặc biệt", "chuyện động lòng"
+- Tất cả hook cảm xúc phải thể hiện qua hành động/tình huống, không dùng từ trực tiếp
 
-HAY TAO NOI DUNG SEO CHUAN YOUTUBE. Tra ve CHINH XAC theo dinh dang sau:
+HÃY TẠO NỘI DUNG SEO CHUẨN YOUTUBE. Trả về CHÍNH XÁC theo định dạng sau:
 
-=== TIEU DE YOUTUBE ===
-[Ban la nguoi viet tieu de YouTube chuyen nghiep cho kenh truyen audio ngon tinh (drama, ngoai tinh, tra thu, hoi han).
-Nhiem vu: Viet tieu de sao cho nguoi xem phai TO MO va MUON BAM NGAY.
+=== TIÊU ĐỀ YOUTUBE ===
+[Bạn là người viết tiêu đề YouTube chuyên nghiệp cho kênh truyện audio ngôn tình (drama, ngoại tình, trả thù, hối hận).
+Nhiệm vụ: Viết tiêu đề sao cho người xem phải TÒ MÒ và MUỐN BẤM NGAY.
 
-QUY TAC BAT BUOC:
-- KHONG viet kieu ke lai noi dung — phai giu "an y", khong tiet lo het
-- KHONG dai dong, KHONG lan man — ngan, sac, co nhip
-- Phai tao cam xuc manh: dau, soc, hoi han, bat ngo
-- Giong tieu de viral tren YouTube, KHONG giong van viet
-- Uu tien cau co 2 ve (truoc — sau), dung "..." de tao to mo
-- KHONG co ten truyen trong tieu de — ten truyen chi xuat hien trong mo ta va tags
+QUY TẮC BẮT BUỘC:
+- KHÔNG viết kiểu kể lại nội dung — phải giữ "ẩn ý", không tiết lộ hết
+- KHÔNG dài dòng, KHÔNG lan man — ngắn, sắc, có nhịp
+- Phải tạo cảm xúc mạnh: đau, sốc, hối hận, bất ngờ
+- Giống tiêu đề viral trên YouTube, KHÔNG giống văn viết
+- Ưu tiên câu có 2 vế (trước — sau), dùng "..." để tạo tò mò
+- KHÔNG có tên truyện trong tiêu đề — tên truyện chỉ xuất hiện trong mô tả và tags
 
-FORMAT: Viet 7 tieu de, danh so 1-7, moi cai tren 1 dong.
-- Moi tieu de 8-14 tu (phan HOOK, khong tinh phan 【Truyện Audio】 va | Hồng Trần Truyện Audio)
-- It nhat 3 tieu de bat dau HOOK bang: "Tôi...", "Đêm đó...", "Ngày tôi...", "Anh..."
+FORMAT: Viết 7 tiêu đề, đánh số 1-7, mỗi cái trên 1 dòng.
+- Mỗi tiêu đề 8-14 từ (phần HOOK, không tính phần 【Truyện Audio】 và | Hồng Trần Truyện Audio)
+- Ít nhất 3 tiêu đề bắt đầu HOOK bằng: "Tôi...", "Đêm đó...", "Ngày tôi...", "Anh..."
 
-Cong thuc bat buoc cho MOI tieu de:
-【Truyện Audio】 [HOOK CAM XUC] | Hồng Trần Truyện Audio
+Công thức bắt buộc cho MỖI tiêu đề:
+【Truyện Audio】 [HOOK CẢM XÚC] | Hồng Trần Truyện Audio
 
-Vi du CHUAN (7 phong cach khac nhau):
+Ví dụ CHUẨN (7 phong cách khác nhau):
 1. 【Truyện Audio】 Tôi mang cơm đến... lại thấy anh ôm người khác | Hồng Trần Truyện Audio
 2. 【Truyện Audio】 3 năm chờ đợi, đổi lại một tờ giấy ly hôn | Hồng Trần Truyện Audio
 3. 【Truyện Audio】 Đêm đó anh quỳ trước cửa... nhưng tôi đã khóa rồi | Hồng Trần Truyện Audio
@@ -80,57 +80,57 @@ Vi du CHUAN (7 phong cach khac nhau):
 6. 【Truyện Audio】 Kiếp trước bị phản bội, kiếp này tôi chọn mình trước | Hồng Trần Truyện Audio
 7. 【Truyện Audio】 Cô ấy im lặng rời đi... cả nhà chồng mới sụp đổ | Hồng Trần Truyện Audio
 
-Vi du kem (CAM DUNG):
-- "Câu chuyện ngôn tình hay" ← qua chung chung, khong co hook
-- "Truyện ngôn tình hay nhất 2026" ← spam tu khoa
-- "Ba năm im lặng rồi ly hôn vì chồng ngoại tình với..." ← ke lai noi dung, khong giu an y
+Ví dụ kém (CẤM DÙNG):
+- "Câu chuyện ngôn tình hay" ← quá chung chung, không có hook
+- "Truyện ngôn tình hay nhất 2026" ← spam từ khoá
+- "Ba năm im lặng rồi ly hôn vì chồng ngoại tình với..." ← kể lại nội dung, không giữ ẩn ý
 
-Yeu cau ky thuat:
-- Luon bat dau bang "【Truyện Audio】" (ngoac vuong, khong thay doi)
-- HOOK lay tu TINH HUONG CU THE trong truyen, tranh tu nhay cam YouTube
-- Ket thuc: "| Hồng Trần Truyện Audio" (khong doi)
-- Tong moi tieu de: DUOI 100 ky tu (bao gom tat ca)
-- 7 tieu de phai KHAC NHAU ve goc nhin va cam xuc
-- Chi liet ke tieu de, KHONG giai thich]
+Yêu cầu kỹ thuật:
+- Luôn bắt đầu bằng "【Truyện Audio】" (ngoặc vuông, không thay đổi)
+- HOOK lấy từ TÌNH HUỐNG CỤ THỂ trong truyện, tránh từ nhạy cảm YouTube
+- Kết thúc: "| Hồng Trần Truyện Audio" (không đổi)
+- Tổng mỗi tiêu đề: DƯỚI 100 ký tự (bao gồm tất cả)
+- 7 tiêu đề phải KHÁC NHAU về góc nhìn và cảm xúc
+- Chỉ liệt kê tiêu đề, KHÔNG giải thích]
 
-=== MO TA YOUTUBE ===
-[Cau truc chuan — QUAN TRONG: 2 dong dau hien truoc nut "Xem them" phai chua tu khoa va cam xuc:
+=== MÔ TẢ YOUTUBE ===
+[Cấu trúc chuẩn — QUAN TRỌNG: 2 dòng đầu hiện trước nút "Xem thêm" phải chứa từ khoá và cảm xúc:
 
-DONG 1 (hook + tu khoa, toi da 100 ky tu):
-[TINH HUONG CHINH gay mo — lay tu noi dung truyen] | Nghe [Ten truyen] audio mien phi tren kenh {channel}.
+DÒNG 1 (hook + từ khoá, tối đa 100 ký tự):
+[TÌNH HUỐNG CHÍNH gây mò — lấy từ nội dung truyện] | Nghe [Tên truyện] audio miễn phí trên kênh {channel}.
 
-DONG 2 (tu khoa SEO):
-Truyen [the loai] hay | [Ten truyen] full bo | Cap nhat moi nhat 2026
+DÒNG 2 (từ khoá SEO):
+Truyện [thể loại] hay | [Tên truyện] full bộ | Cập nhật mới nhất 2026
 
-DOAN 1 — Tom tat co cam xuc (3-4 cau):
-[Mo ta nhan vat chinh + mau thuan + cam xuc chinh — dung ngon ngu truyen audio Viet Nam, co tu khoa: ten truyen, the loai, tinh cam/hanh dong noi bat]
+ĐOẠN 1 — Tóm tắt có cảm xúc (3-4 câu):
+[Mô tả nhân vật chính + mâu thuẫn + cảm xúc chính — dùng ngôn ngữ truyện audio Việt Nam, có từ khoá: tên truyện, thể loại, tình cảm/hành động nổi bật]
 
-DOAN 2 — Diem hap dan cua truyen (2-3 cau):
-[Neu bat moi quan he nhan vat, boi canh, twist chinh — du de nguoi nghe tay mo nhung KHONG spoil ket thuc]
+ĐOẠN 2 — Điểm hấp dẫn của truyện (2-3 câu):
+[Nêu bật mối quan hệ nhân vật, bối cảnh, twist chính — đủ để người nghe tò mò nhưng KHÔNG spoil kết thúc]
 
-DOAN 3 — Call to action:
-Like va Subscribe de nghe tiep nha ban! Bat thong bao (🔔) de khong bo lo chuong moi. Comment ten truyen ban muon nghe tiep theo!
-👉 Doc truyen day du tai: {novel_url}
+ĐOẠN 3 — Lời kêu gọi hành động:
+Like và Subscribe để nghe tiếp nhé bạn! Bật thông báo (🔔) để không bỏ lỡ chương mới. Comment tên truyện bạn muốn nghe tiếp theo!
+👉 Đọc truyện đầy đủ tại: {novel_url}
 
-HASHTAG (5 cai cuoi mo ta):
-#TruyenAudio #[TheLoai] #[TenTruyen khong dau khong khoang trang] #NgheVietNam #HongTranTruyen
+HASHTAG (5 cái cuối mô tả):
+#TruyenAudio #[ThểLoại] #[TênTruyện không dấu không khoảng trắng] #NgheVietNam #HongTranTruyen
 ]
 
-=== TAGS (500 ky tu, YouTube dung de phan loai) ===
-[Sap xep theo thu tu quan trong:
-1. Ten truyen day du co dau, khong dau
-2. Ten tac gia co dau, khong dau
-3. The loai chinh co dau, khong dau
-4. Tu khoa chung: truyện audio, nghe truyện, truyện hay, truyện full bộ, truyện audio việt nam
-5. Dac diem noi bat: xuyen khong, trong sinh, nu cuong, HE, BE, nguoc tam, ngot ngao...
-6. Tu khoa trending: truyen [the loai] hay nhat 2026, truyen [the loai] moi nhat
-Tat ca cach nhau dau phay, khong co #, tong khong qua 500 ky tu]
+=== TAGS (500 ký tự, YouTube dùng để phân loại) ===
+[Sắp xếp theo thứ tự quan trọng:
+1. Tên truyện đầy đủ có dấu, không dấu
+2. Tên tác giả có dấu, không dấu
+3. Thể loại chính có dấu, không dấu
+4. Từ khoá chung: truyện audio, nghe truyện, truyện hay, truyện full bộ, truyện audio việt nam
+5. Đặc điểm nổi bật: xuyên không, trọng sinh, nữ cường, HE, BE, ngược tâm, ngọt ngào...
+6. Từ khoá trending: truyện [thể loại] hay nhất 2026, truyện [thể loại] mới nhất
+Tất cả cách nhau dấu phẩy, không có #, tổng không quá 500 ký tự]
 
-=== TOM TAT (dung cho pinned comment) ===
-[2-3 cau NGAN, goi mo noi dung, KHONG spoil ket thuc.
-Viet co dau, than thien, khien nguoi doc muon nghe ngay.]
+=== TÓM TẮT (dùng cho pinned comment) ===
+[2-3 câu NGẮN, gợi mở nội dung, KHÔNG spoil kết thúc.
+Viết có dấu, thân thiện, khiến người đọc muốn nghe ngay.]
 
-CHI tra ve 4 phan tren (TIEU DE, MO TA, TAGS, TOM TAT), khong co giai thich hay chu thich them."""
+CHỈ trả về 4 phần trên (TIÊU ĐỀ, MÔ TẢ, TAGS, TÓM TẮT), không có giải thích hay chú thích thêm."""
 
 
 try:
@@ -280,7 +280,7 @@ def analyze_novel_seo(
     author: str,
     genres: str,
     chapters: list,      # [{'content': str, ...}]
-    output_dir: str,     # thu muc cua truyen (da co slug subfolder)
+    output_dir: str,     # thư mục của truyện (đã có slug subfolder)
     channel_name: str = '',
     novel_url: str = '',
 ) -> str | None:
@@ -306,7 +306,7 @@ def analyze_novel_seo(
 
     sample = '\n\n'.join(sample_parts)
     if not sample:
-        logger.warning("Khong co noi dung de phan tich SEO.")
+        logger.warning("Không có nội dung để phân tích SEO.")
         return None
 
     prompt = SEO_PROMPT_TEMPLATE.format(
@@ -322,13 +322,13 @@ def analyze_novel_seo(
     result = _call_ai(prompt)
 
     if not result:
-        logger.warning("  AI khong tra ve ket qua SEO.")
+        logger.warning("  AI không trả về kết quả SEO.")
         return None
 
     # ── Post-processing ────────────────────────────────────────────
     import re as _re
 
-    # 0. Xoa ky tu Trung/Nhat/Han (giu lai phan tieng Viet trong dong)
+    # 0. Xoá ký tự Trung/Nhật/Hàn (giữ lại phần tiếng Việt trong dòng)
     _CJK_RE = _re.compile(r'[\u4e00-\u9fff\u3400-\u4dbf\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]+')
     if _CJK_RE.search(result):
         result = _CJK_RE.sub('', result)
@@ -337,7 +337,7 @@ def analyze_novel_seo(
         result = _re.sub(r'^ +| +$', '', result, flags=_re.MULTILINE)
         # Xoa dong trong thua
         result = _re.sub(r'\n{3,}', '\n\n', result)
-        logger.info("  🈲 SEO: da xoa ky tu Trung/Nhat/Han")
+        logger.info("  🈲 SEO: đã xoá ký tự Trung/Nhật/Hàn")
 
     # 1. Xoa phan THUMBNAIL neu AI van sinh ra (safety net)
     result = _re.sub(
@@ -349,16 +349,16 @@ def analyze_novel_seo(
         '', result, flags=_re.DOTALL | _re.IGNORECASE,
     ).strip()
 
-    # 2. Dam bao tieu de khong co ten truyen va duoi 100 ky tu (YouTube limit)
-    #    Xoa phan "| TEN_TRUYEN" neu co 2+ dau "|" trong tieu de
+    # 2. Đảm bảo tiêu đề không có tên truyện và dưới 100 ký tự (YouTube limit)
+    #    Xoá phần "| TÊN_TRUYỆN" nếu có 2+ dấu "|" trong tiêu đề
     _TITLE_MAX = 100
     _SUFFIX = ' | Hồng Trần Truyện Audio'
     _PREFIX = '【Truyện Audio】'
-    _MAX_HOOK = _TITLE_MAX - len(_PREFIX) - len(_SUFFIX)  # ~60 ky tu cho hook
+    _MAX_HOOK = _TITLE_MAX - len(_PREFIX) - len(_SUFFIX)  # ~60 ký tự cho hook
 
     def _fix_title_line(text: str) -> str:
-        """Fix 1 dong tieu de (co hoac khong co prefix '# ' hoac '1. ')."""
-        # Trim prefix danh so: "1. ", "2. ", "# " ...
+        """Fix 1 dòng tiêu đề (có hoặc không có prefix '# ' hoặc '1. ')."""
+        # Trim prefix đánh số: "1. ", "2. ", "# " ...
         stripped = text
         prefix_part = ''
         if _re.match(r'^\d+\.\s+', stripped):
@@ -373,16 +373,16 @@ def analyze_novel_seo(
             return text
 
         parts = [p.strip() for p in stripped.split('|')]
-        # Giu phan dau (hook) va phan cuoi (Hồng Trần Truyện Audio)
+        # Giữ phần đầu (hook) và phần cuối (Hồng Trần Truyện Audio)
         if len(parts) >= 3:
             stripped = parts[0] + _SUFFIX
-        # Cat ngan neu qua 100 ky tu — cat tai khoang trang, khong cat giua tu
+        # Cắt ngắn nếu quá 100 ký tự — cắt tại khoảng trắng, không cắt giữa từ
         if len(stripped) > _TITLE_MAX:
             hook_end = stripped.rfind(_SUFFIX)
             if hook_end > 0:
                 hook = stripped[:hook_end].rstrip('. ')
                 if len(hook) > _MAX_HOOK:
-                    # Tim khoang trang gan nhat truoc _MAX_HOOK
+                    # Tìm khoảng trắng gần nhất trước _MAX_HOOK
                     cut = hook[:_MAX_HOOK].rfind(' ')
                     if cut > len(_PREFIX):
                         hook = hook[:cut].rstrip('.,;:!? ')
@@ -402,14 +402,14 @@ def analyze_novel_seo(
     with open(out_path, 'w', encoding='utf-8') as f:
         f.write(f"{'=' * 60}\n")
         f.write(f"  {title}\n")
-        f.write(f"  Tac gia : {author}  |  The loai: {genres}\n")
+        f.write(f"  Tác giả : {author}  |  Thể loại: {genres}\n")
         if channel_name:
-            f.write(f"  Kenh    : {channel_name}\n")
+            f.write(f"  Kênh    : {channel_name}\n")
         f.write(f"{'=' * 60}\n\n")
         f.write(result)
         f.write("\n")
 
-    logger.info(f"  Da luu SEO: {out_path}")
+    logger.info(f"  Đã lưu SEO: {out_path}")
     return out_path
 
 
@@ -417,53 +417,53 @@ def analyze_novel_seo(
 # Shorts SEO — TikTok + YouTube Shorts
 # ─────────────────────────────────────────────────────────────────
 
-SHORTS_SEO_PROMPT = """Ban la chuyen gia marketing noi dung cho TikTok va YouTube Shorts, chuyen trang truyen audio Viet Nam.
+SHORTS_SEO_PROMPT = """Bạn là chuyên gia marketing nội dung cho TikTok và YouTube Shorts, chuyên trang truyện audio Việt Nam.
 
-== QUY TAC NGON NGU — BAT BUOC ==
-- Tat ca noi dung phai viet bang TIENG VIET CO DAU.
-- TUYET DOI KHONG dung tieng Trung, tieng Anh, hay bat ky ngon ngu nao khac trong caption, title, description.
-- Neu hook story co chua tieng Trung/tieng nuoc ngoai, hay DICH SANG TIENG VIET truoc khi dung.
-- Ten nhan vat giu nguyen (phien am Viet), khong viet bang chu Han.
+== QUY TẮC NGÔN NGỮ — BẮT BUỘC ==
+- Tất cả nội dung phải viết bằng TIẾNG VIỆT CÓ DẤU.
+- TUYỆT ĐỐI KHÔNG dùng tiếng Trung, tiếng Anh, hay bất kỳ ngôn ngữ nào khác trong caption, title, description.
+- Nếu hook story có chứa tiếng Trung/tiếng nước ngoài, hãy DỊCH SANG TIẾNG VIỆT trước khi dùng.
+- Tên nhân vật giữ nguyên (phiên âm Việt), không viết bằng chữ Hán.
 
-Duoi day la hook story (script doc) cua video Shorts:
+Dưới đây là hook story (script đọc) của video Shorts:
 ---
 {hook_story}
 ---
 
-Ten truyen: {title}
-The loai: {genres}
-Kenh: {channel}
+Tên truyện: {title}
+Thể loại: {genres}
+Kênh: {channel}
 
-Nhiem vu: Tao SEO caption va hashtag toi uu cho TIKTOK va YOUTUBE SHORTS. VIET TOAN BO BANG TIENG VIET.
+Nhiệm vụ: Tạo SEO caption và hashtag tối ưu cho TIKTOK và YOUTUBE SHORTS. VIẾT TOÀN BỘ BẰNG TIẾNG VIỆT CÓ DẤU.
 
 === TIKTOK CAPTION ===
-[Cau truc: 3 phan, tong toi da 2200 ky tu]
+[Cấu trúc: 3 phần, tổng tối đa 2200 ký tự]
 
-DONG DAU (150 ky tu dau — hien thi truoc nut "Xem them", QUAN TRONG NHAT):
-[Cau hook cuc manh — lay thang tu tinh huong gay to mo nhat trong truyen, ket thuc bang ... hoac ? de nguoi ta phai bam "Xem them"]
-[Vi du: "Anh chuyen 1.5 trieu cho nguoi khac, nhung lai bao vo "anh het tien roi"... Em lanh lung mo file ngan hang ra xem 👇"]
+DÒNG ĐẦU (150 ký tự đầu — hiển thị trước nút "Xem thêm", QUAN TRỌNG NHẤT):
+[Câu hook cực mạnh — lấy thẳng từ tình huống gây tò mò nhất trong truyện, kết thúc bằng ... hoặc ? để người ta phải bấm "Xem thêm"]
+[Ví dụ: "Anh chuyển 1.5 triệu cho người khác, nhưng lại bảo vợ "anh hết tiền rồi"... Em lạnh lùng mở file ngân hàng ra xem 👇"]
 
-NOI DUNG (phan mo rong sau "Xem them"):
-[2-3 cau tom tat hook story — gay cam xuc, tao mo — KHONG spoil ket thuc]
-[Ket thuc bang: "Nghe toan bo tai {channel} 🎧"]
+NỘI DUNG (phần mở rộng sau "Xem thêm"):
+[2-3 câu tóm tắt hook story — gây cảm xúc, tạo mò — KHÔNG spoil kết thúc]
+[Kết thúc bằng: "Nghe toàn bộ tại {channel} 🎧"]
 
-HASHTAG TIKTOK (10-15 cai, xen ke pho bien va niche):
-[Chua hashtag pho bien: #truyenaudio #ngontinh #truyenhay]
+HASHTAG TIKTOK (10-15 cái, xen kẽ phổ biến và niche):
+[Chứa hashtag phổ biến: #truyenaudio #ngontinh #truyenhay]
 [Hashtag niche: #truyengaycam #truyencuoituan #audiotruyen]
-[Hashtag trending neu phu hop: #xuhuong #fyp #foryou]
+[Hashtag trending nếu phù hợp: #xuhuong #fyp #foryou]
 
 === YOUTUBE SHORTS TITLE ===
-[Tieu de ngan, manh, toi da 100 ky tu]
-[Format: [HOOK NE CUONG] | Ten truyen | {channel}]
-[Vi du: "Anh chuyen het tien cho ban gai cu roi noi "anh het tien" | Hanh Phuc Do Toi Tu Tao | {channel}"]
+[Tiêu đề ngắn, mạnh, tối đa 100 ký tự]
+[Format: [HOOK NÉ CƯỠNG] | Tên truyện | {channel}]
+[Ví dụ: "Anh chuyển hết tiền cho bạn gái cũ rồi nói "anh hết tiền" | Hạnh Phúc Do Tôi Tự Tạo | {channel}"]
 
 === YOUTUBE SHORTS DESCRIPTION ===
-[2-3 dong ngan]
-[Dong 1: Hook + ten truyen]
-[Dong 2: "Nghe full tai: " + URL neu co]
-[Dong 3: 3-5 hashtag: #Shorts #TruyenAudio #NgonTinh]
+[2-3 dòng ngắn]
+[Dòng 1: Hook + tên truyện]
+[Dòng 2: "Nghe full tại: " + URL nếu có]
+[Dòng 3: 3-5 hashtag: #Shorts #TruyenAudio #NgonTinh]
 
-CHI tra ve 3 phan tren theo dung format. Khong giai thich them."""
+CHỈ trả về 3 phần trên theo đúng format. Không giải thích thêm."""
 
 
 def analyze_shorts_seo(
@@ -481,54 +481,54 @@ def analyze_shorts_seo(
         Duong dan file seo_shorts.txt, hoac None neu loi.
     """
     if not hook_story.strip():
-        logger.warning("Hook story trong — bo qua Shorts SEO.")
+        logger.warning("Hook story trống — bỏ qua Shorts SEO.")
         return None
 
     prompt = SHORTS_SEO_PROMPT.format(
         hook_story=hook_story[:2000],   # gioi han token
         title=title,
-        genres=genres or 'ngon tinh',
-        channel=channel_name or 'Hong Tran Truyen Audio',
+        genres=genres or 'ngôn tình',
+        channel=channel_name or 'Hồng Trần Truyện Audio',
         url=novel_url or 'https://hongtrantruyen.net',
     )
 
-    logger.info("  Dang tao Shorts SEO (TikTok + YouTube Shorts)...")
+    logger.info("  Đang tạo Shorts SEO (TikTok + YouTube Shorts)...")
     result = _call_ai(prompt)
 
     if not result:
-        logger.warning("  AI khong tra ve ket qua Shorts SEO.")
+        logger.warning("  AI không trả về kết quả Shorts SEO.")
         return None
 
     # Post-processing
     import re as _re2
 
-    # 1. Xoa ky tu Trung/Nhat/Han (giu phan tieng Viet)
+    # 1. Xoá ký tự Trung/Nhật/Hàn (giữ phần tiếng Việt)
     _CJK_RE = _re2.compile(r'[\u4e00-\u9fff\u3400-\u4dbf\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]+')
     if _CJK_RE.search(result):
         result = _CJK_RE.sub('', result)
         result = _re2.sub(r'  +', ' ', result)
         result = _re2.sub(r'^ +| +$', '', result, flags=_re2.MULTILINE)
         result = _re2.sub(r'\n{3,}', '\n\n', result)
-        logger.info("  🈲 Shorts SEO: da xoa ky tu Trung/Nhat/Han")
+        logger.info("  🈲 Shorts SEO: đã xoá ký tự Trung/Nhật/Hàn")
 
-    # 2. Fix Shorts title — xoa ten truyen thua, gioi han 100 ky tu
+    # 2. Fix Shorts title — xoá tên truyện thừa, giới hạn 100 ký tự
     _SHORTS_SUFFIX = ' | Hồng Trần Truyện Audio'
     def _fix_shorts_title(line: str) -> str:
-        # Tim phan trong ngoac kep hoac ngoac vuong
+        # Tìm phần trong ngoặc kép hoặc ngoặc vuông
         m = _re2.search(r'["\[](.*?)["\]]', line)
         if not m:
             return line
         raw = m.group(1).strip()
         parts = [p.strip() for p in raw.split('|')]
         if len(parts) >= 3:
-            # Giu hook (phan dau) + suffix (phan cuoi), xoa ten truyen (giua)
+            # Giữ hook (phần đầu) + suffix (phần cuối), xoá tên truyện (giữa)
             raw = parts[0] + ' | ' + parts[-1]
         elif len(parts) == 2 and 'Hồng Trần' not in parts[-1]:
-            # hook | ten truyen — them suffix
+            # hook | tên truyện — thêm suffix
             raw = parts[0] + _SHORTS_SUFFIX
         elif len(parts) == 1:
             raw = parts[0] + _SHORTS_SUFFIX
-        # Gioi han 100 ky tu
+        # Giới hạn 100 ký tự
         if len(raw) > 100:
             suffix_pos = raw.rfind(_SHORTS_SUFFIX)
             if suffix_pos > 0:
@@ -565,5 +565,5 @@ def analyze_shorts_seo(
         f.write(result)
         f.write("\n")
 
-    logger.info(f"  Da luu Shorts SEO: {out_path}")
+    logger.info(f"  Đã lưu Shorts SEO: {out_path}")
     return out_path

@@ -108,6 +108,11 @@ HF_IMAGE_STEPS = 4           # schnell works best with 1-4 steps
 #   16:9 → 1344×768  (YouTube Thumbnail)
 HF_IMAGE_RATIO = os.environ.get("HF_IMAGE_RATIO", "9:16")   # "9:16" | "16:9" | "1:1"
 
+# === Cover Generation (ảnh bìa truyện) ===
+# Tự động tạo cover khi crawl truyện mới (dùng FLUX.1-schnell 16:9)
+COVER_ENABLED = os.environ.get("COVER_ENABLED", "true").lower() == "true"
+COVER_MAX_SIZE_KB = 200       # Nén ảnh cover < 200KB
+
 # === Genre mapping ===
 GENRE_MAP = {
     'ngôn tình': 'ngon-tinh',
