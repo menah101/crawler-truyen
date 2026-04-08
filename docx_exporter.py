@@ -86,6 +86,7 @@ def clean_text(text: str) -> str:
 
     # Thay từ nhạy cảm
     replacement_map = {
+        r'\bchó má\b':    'ngu ngốc',
         r'\bchết\b':      'chít',
         r'\bgiết\b':      'xử',
         r'\bchém\b':      'xém',
@@ -101,9 +102,21 @@ def clean_text(text: str) -> str:
     for pattern, replacement in replacement_map.items():
         text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
 
-    # Xóa ký tự đặc biệt không hợp lệ
-    text = re.sub(rf'[^{VIETNAMESE_WORD}\s.,!?\'\"""\'\'…\-–—:;()\[\]{{}}]', '', text)
-    text = re.sub(r'\s+', ' ', text).strip()
+    # Tách câu bị dính liền: "nhẫnGió" → "nhẫn\nGió" (chữ thường + chữ HOA liền nhau)
+    # Chỉ tách khi chữ trước KHÔNG phải tên riêng nước ngoài thường gặp
+    _VIET_LOWER = r'[a-zàáảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ]'
+    _VIET_UPPER = r'[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ]'
+    text = re.sub(
+        rf'({_VIET_LOWER})({_VIET_UPPER})',
+        r'\1\n\2', text,
+    )
+
+    # Xóa ký tự đặc biệt không hợp lệ (giữ nguyên \n để tách đoạn)
+    text = re.sub(rf'[^{VIETNAMESE_WORD}\s.,!?\'\"""\'\'…\-–—:;()\[\]{{}}\n]', '', text)
+    # Gộp nhiều space trên cùng dòng (KHÔNG gộp \n)
+    text = re.sub(r'[^\S\n]+', ' ', text)
+    # Gộp nhiều \n liên tiếp thành 1
+    text = re.sub(r'\n+', '\n', text).strip()
 
     return text
 
