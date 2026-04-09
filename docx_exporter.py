@@ -118,6 +118,266 @@ def clean_text(text: str) -> str:
     # Gộp nhiều \n liên tiếp thành 1
     text = re.sub(r'\n+', '\n', text).strip()
 
+    # ── Kiểm tra & sửa chính tả phổ biến ─────────────────────────
+    text = _fix_common_typos(text)
+
+    return text
+
+
+# ─────────────────────────────────────────────────────────────────
+# Kiểm tra chính tả — sửa lỗi phổ biến từ AI rewrite tiếng Việt
+# ─────────────────────────────────────────────────────────────────
+
+# Từ sai → từ đúng (AI hay viết sai)
+_TYPO_MAP = {
+    # Lỗi AI hay gặp: thiếu dấu / sai dấu
+    'nguoi': 'người',
+    'khong': 'không',
+    'nhung': 'nhưng',
+    'duoc': 'được',
+    'cung': 'cũng',
+    'dang': 'đang',
+    'nhin': 'nhìn',
+    'muon': 'muốn',
+    'biet': 'biết',
+    'dieu': 'điều',
+    'truoc': 'trước',
+    'phai': 'phải',
+    'chuyen': 'chuyện',
+    'noi': 'nói',
+    'tinh': 'tình',
+    'nhu': 'như',
+    'voi': 'với',
+    'trong': 'trong',
+    'anh': 'anh',
+    # Lỗi phổ biến từ dịch máy
+    'thế thế': 'thế',
+    'rằng rằng': 'rằng',
+    'mà mà': 'mà',
+    'là là': 'là',
+    'và và': 'và',
+    'nhưng nhưng': 'nhưng',
+    'của của': 'của',
+    # Lỗi thiếu khoảng trắng sau dấu câu
+}
+
+# ── Lỗi OCR / ký tự bị merge / hỏng ──────────────────────────
+# Từ bị hỏng → từ đúng (OCR đọc sai, ký tự bị dính/mất)
+_OCR_MAP = {
+    # Ký tự bị merge (2 từ dính thành 1, mất chữ giữa)
+    'đượều':  'được Kiều',
+    'củôi':   'của tôi',
+    'khôì':   'không',
+    'đượợc':  'được',
+    'ngưươi': 'người',
+    'nhưưng': 'nhưng',
+    'đưươc':  'được',
+    'khôông':  'không',
+    'ngườời':  'người',
+    'nhữững':  'những',
+    'nhưưng':  'nhưng',
+    'chuuyện': 'chuyện',
+    'truuyện': 'truyện',
+    'đưường':  'đường',
+    'tưưởng':  'tưởng',
+    'phưương':  'phương',
+    'thưương':  'thương',
+    'hưướng':  'hướng',
+    'vưương':  'vương',
+    # Ký tự bị lỗi dấu
+    'mắóa':  'mắt khóa',
+    'ngưòi':  'người',
+    'đưòng':  'đường',
+    'thưòng': 'thường',
+    'nưóc':   'nước',
+    'đưóc':   'được',
+    'cưòi':   'cười',
+    'tưòng':  'tường',
+    'lưòi':   'lười',
+    'sưòng':  'sường',
+    'vưòn':   'vườn',
+    'trưóc':  'trước',
+}
+
+# Từ tiếng Anh phổ biến trong truyện → tiếng Việt chuẩn
+_ENGLISH_VIET_MAP = {
+    'shock':       'sốc',
+    'shocked':     'sốc',
+    'shocking':    'sốc',
+    'ok':          'ổn',
+    'okay':        'được',
+    'sorry':       'xin lỗi',
+    'baby':        'em bé',
+    'honey':       'cưng',
+    'darling':     'cưng',
+    'please':      'làm ơn',
+    'thank':       'cảm ơn',
+    'thanks':      'cảm ơn',
+    'happy':       'vui vẻ',
+    'bye':         'tạm biệt',
+    'goodbye':     'tạm biệt',
+    'hello':       'xin chào',
+    'like':        'thích',
+    'love':        'yêu',
+    'cool':        'tuyệt',
+    'nice':        'tốt',
+    'hot':         'nóng',
+    'sexy':        'quyến rũ',
+    'stress':      'căng thẳng',
+    'style':       'phong cách',
+    'trend':       'xu hướng',
+    'so':          'vậy',
+    'look':        'nhìn',
+    'kiss':        'hôn',
+    'sweet':       'ngọt ngào',
+    'perfect':     'hoàn hảo',
+    'romantic':    'lãng mạn',
+    'crazy':       'điên',
+    'single':      'độc thân',
+    'couple':      'cặp đôi',
+    'date':        'hẹn hò',
+    'fans':        'người hâm mộ',
+    'fan':         'người hâm mộ',
+    'online':      'trực tuyến',
+    'comeback':    'trở lại',
+    'deadline':    'hạn chót',
+    'feedback':    'phản hồi',
+    'game':        'trò chơi',
+    'idea':        'ý tưởng',
+    'item':        'vật phẩm',
+    'level':       'cấp độ',
+    'list':        'danh sách',
+    'comment':     'bình luận',
+    'share':       'chia sẻ',
+    'view':        'lượt xem',
+    'check':       'kiểm tra',
+    'update':      'cập nhật',
+    'drama':       'bi kịch',
+    'star':        'ngôi sao',
+    'hot girl':    'gái xinh',
+    'hot boy':     'trai đẹp',
+    'full':        'đầy đủ',
+}
+
+# Lỗi lặp từ (AI hay lặp 2-3 lần cùng cụm)
+_REPEATED_WORD_RE = re.compile(
+    r'\b([\wÀ-ỹ]{2,})\s+\1\b',
+    re.IGNORECASE | re.UNICODE,
+)
+
+# Lỗi thiếu dấu cách sau dấu câu: "đi.Tôi" → "đi. Tôi"
+_MISSING_SPACE_AFTER_PUNCT_RE = re.compile(
+    r'([.!?,:;])([A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐa-zàáảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ])'
+)
+
+# Lỗi dấu câu kép: ".. " → ". ", "!! " → "! "
+_DOUBLE_PUNCT_RE = re.compile(r'([.!?,;:])\1+')
+
+# Dấu cách thừa trước dấu câu: "tôi ." → "tôi."
+_SPACE_BEFORE_PUNCT_RE = re.compile(r'\s+([.!?,;:])')
+
+# Lỗi dấu ngoặc kép không đóng/mở đúng
+_QUOTE_FIXES = [
+    ('"', '"'),  # smart quote mở
+    ('"', '"'),  # smart quote đóng
+    ('「', '"'),
+    ('」', '"'),
+    ('『', '"'),
+    ('』', '"'),
+]
+
+
+def _fix_common_typos(text: str) -> str:
+    """Sửa lỗi chính tả phổ biến từ AI rewrite."""
+
+    # 1. Thêm dấu cách sau dấu câu bị thiếu: "đi.Tôi" → "đi. Tôi"
+    text = _MISSING_SPACE_AFTER_PUNCT_RE.sub(r'\1 \2', text)
+
+    # 2. Xóa dấu câu kép: ".." → ".", "!!" → "!"
+    text = _DOUBLE_PUNCT_RE.sub(r'\1', text)
+
+    # 3. Xóa dấu cách thừa trước dấu câu: "tôi ." → "tôi."
+    text = _SPACE_BEFORE_PUNCT_RE.sub(r'\1', text)
+
+    # 4. Sửa từ lặp liền nhau: "rằng rằng" → "rằng"
+    text = _REPEATED_WORD_RE.sub(r'\1', text)
+
+    # 5. Sửa cụm từ lặp phổ biến
+    for wrong, right in _TYPO_MAP.items():
+        if wrong != right and ' ' in wrong:
+            # Chỉ sửa cụm từ (có dấu cách) — tránh sửa nhầm từ đơn hợp lệ
+            text = re.sub(rf'\b{re.escape(wrong)}\b', right, text, flags=re.IGNORECASE)
+
+    # 6. Chuẩn hóa dấu ngoặc kép
+    for old, new in _QUOTE_FIXES:
+        text = text.replace(old, new)
+
+    # 7. Sửa dấu "..." bị thừa: "...." → "..."
+    text = re.sub(r'\.{4,}', '...', text)
+
+    # 8. Xóa từ ngập ngừng/suy nghĩ do AI thêm vào: "ưm...", "a...", "hừm...", "ừ..."
+    #    VD: "chúng ta đã yêu nhau... a... ba năm" → "chúng ta đã yêu nhau... ba năm"
+    text = re.sub(
+        r'\.{2,3}\s*(?:ưm|uhm|à|a|ừ|hừm|hừ|ờ|ồ|ủa|eh|hmm|um|ah|oh|ơ|ê)\s*\.{2,3}',
+        '...', text, flags=re.IGNORECASE,
+    )
+    # Dạng đứng đầu câu thoại: "Ưm... chúng ta" → "Chúng ta"
+    text = re.sub(
+        r'(?<=["\"])\s*(?:ưm|uhm|à|a|ừ|hừm|hừ|ờ|ồ|ủa|eh|hmm|um|ah|oh|ơ|ê)\s*\.{2,3}\s*',
+        '', text, flags=re.IGNORECASE,
+    )
+    # Dạng có dấu phẩy: ", ưm," hoặc ", a,"
+    text = re.sub(
+        r',\s*(?:ưm|uhm|à|a|ừ|hừm|hừ|ờ|ồ|ủa|eh|hmm|um|ah|oh|ơ|ê)\s*,',
+        ',', text, flags=re.IGNORECASE,
+    )
+
+    # 9. Sửa lỗi OCR / ký tự bị merge / hỏng
+    def _ocr_replace(match, replacement):
+        """Thay thế giữ nguyên viết hoa/thường của từ gốc."""
+        orig = match.group(0)
+        if orig[0].isupper():
+            return replacement[0].upper() + replacement[1:]
+        return replacement
+
+    for wrong, right in _OCR_MAP.items():
+        if ' ' in wrong:
+            text = text.replace(wrong, right)
+        else:
+            text = re.sub(
+                rf'\b{re.escape(wrong)}\b',
+                lambda m, r=right: _ocr_replace(m, r),
+                text, flags=re.IGNORECASE,
+            )
+
+    # 10. Sửa từ bị thiếu chữ đầu dòng (OCR cắt mất ký tự đầu)
+    #     VD: "ìn về phía tôi" → "nhìn về phía tôi" (đầu câu)
+    _HEAD_TRUNC = {
+        'ìn':  'nhìn',   'ày': 'này',   'ôi': 'tôi',
+        'ũng': 'cũng',   'ược': 'được', 'ưng': 'nhưng',
+        'ười': 'người',   'ầy': 'đầy',  'ạy': 'vậy',
+        'ồi': 'rồi',     'ại': 'lại',  'ốn': 'không',
+        'ảy': 'vảy',     'ản': 'bản',  'ến': 'đến',
+        'ật': 'thật',    'ức': 'lực',   'ổi': 'đổi',
+    }
+    for trunc, full in _HEAD_TRUNC.items():
+        # Chỉ sửa khi đứng đầu dòng (sau \n hoặc đầu text)
+        text = re.sub(
+            rf'(?m)^{re.escape(trunc)}\b',
+            full, text,
+        )
+
+    # 11. Thay từ tiếng Anh phổ biến → tiếng Việt
+    for eng, viet in _ENGLISH_VIET_MAP.items():
+        text = re.sub(
+            rf'\b{re.escape(eng)}\b',
+            lambda m, r=viet: r[0].upper() + r[1:] if m.group(0)[0].isupper() else r,
+            text, flags=re.IGNORECASE,
+        )
+
+    # 12. Xóa dòng chỉ chứa dấu cách
+    text = re.sub(r'(?m)^[ \t]+$', '', text)
+
     return text
 
 
@@ -132,6 +392,72 @@ def _add_para(doc, text: str, space_after_pt: float = 6.0):
 
 
 CHAR_LIMIT = 60_000   # ký tự tối đa mỗi file DOCX
+
+
+def _write_txt(
+    slug: str,
+    part: int | None,
+    title: str,
+    author: str,
+    chapters: list,
+    output_dir: str,
+    channel_name: str,
+    total_parts: int,
+) -> str:
+    """Ghi một file TXT cho một nhóm chương. Trả về đường dẫn file."""
+    suffix   = f"_p{part}" if part is not None else ""
+    out_path = os.path.join(output_dir, f"{slug}{suffix}.txt")
+
+    lines: list[str] = []
+
+    # ── Lời chào ───────────────────────────────────────────────────────────
+    if channel_name:
+        if part is not None:
+            greeting = (
+                f"Chào mừng các bạn đến với {channel_name}. "
+                f"Chúc các bạn nghe truyện vui vẻ. "
+                f"(Phần {part}/{total_parts})"
+            )
+        else:
+            greeting = (
+                f"Chào mừng các bạn đến với {channel_name}. "
+                f"Chúc các bạn nghe truyện vui vẻ."
+            )
+    else:
+        greeting = f"{title} — {author}"
+        if part is not None:
+            greeting += f" (Phần {part}/{total_parts})"
+
+    lines.append(greeting)
+    lines.append('')
+
+    # ── Nội dung ───────────────────────────────────────────────────────────
+    for ch in chapters:
+        content = clean_text(ch.get('content', ''))
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped:
+                lines.append(stripped)
+                lines.append('')
+
+    # ── Lời kết ────────────────────────────────────────────────────────────
+    if part is not None and part < total_parts:
+        ending = (
+            f"Hết phần {part}. Mời các bạn nghe tiếp phần {part + 1}."
+            + (f" Nhớ like và đăng ký kênh {channel_name}." if channel_name else "")
+        )
+    else:
+        ending = (
+            f"Hoàn văn. Nhớ like và đăng ký kênh {channel_name} để nghe nhiều chuyện ngôn tình hay."
+            if channel_name
+            else "Hoàn văn."
+        )
+    lines.append(ending)
+
+    with open(out_path, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(lines))
+
+    return out_path
 
 
 def _write_docx(
@@ -300,20 +626,22 @@ def _build_docx(
     novel_dir  = os.path.join(output_dir, slug)
     os.makedirs(novel_dir, exist_ok=True)
 
-    # Xóa các file DOCX cũ để tránh phần thừa sau khi rebuild
+    # Xóa các file DOCX/TXT cũ để tránh phần thừa sau khi rebuild
     # Dùng try/except để không crash nếu file đang mở hoặc bị khóa
     for f in os.listdir(novel_dir):
-        if f.endswith('.docx') and not f.startswith('~$'):
+        if (f.endswith('.docx') or f.endswith('.txt')) and not f.startswith('~$'):
             try:
                 os.remove(os.path.join(novel_dir, f))
             except OSError as e:
-                logger.warning(f"  ⚠️ Không thể xóa DOCX cũ {f}: {e}")
+                logger.warning(f"  ⚠️ Không thể xóa file cũ {f}: {e}")
 
     total_chars = sum(len(ch.get('content', '')) for ch in chapters)
 
     if total_chars <= CHAR_LIMIT:
         out_path = _write_docx(slug, None, title, author, chapters, novel_dir, channel_name, 1)
+        txt_path = _write_txt(slug, None, title, author, chapters, novel_dir, channel_name, 1)
         logger.info(f"  📄 DOCX: {out_path}  ({len(chapters)} chương, {total_chars:,} ký tự)")
+        logger.info(f"  📝 TXT:  {txt_path}")
         return [out_path]
 
     # Tách thành nhiều phần theo CHAR_LIMIT
@@ -337,11 +665,13 @@ def _build_docx(
 
     for idx, group in enumerate(groups, start=1):
         out_path = _write_docx(slug, idx, title, author, group, novel_dir, channel_name, total_parts)
+        txt_path = _write_txt(slug, idx, title, author, group, novel_dir, channel_name, total_parts)
         group_chars = sum(len(ch.get('content', '')) for ch in group)
         logger.info(
             f"  📄 DOCX phần {idx}/{total_parts}: {out_path}"
             f"  ({len(group)} chương, {group_chars:,} ký tự)"
         )
+        logger.info(f"  📝 TXT  phần {idx}/{total_parts}: {txt_path}")
         out_paths.append(out_path)
 
     return out_paths
