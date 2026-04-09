@@ -13,7 +13,11 @@ import io
 import logging
 import re
 import requests
-from PIL import Image
+
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 
 logger = logging.getLogger(__name__)
 
@@ -490,6 +494,10 @@ def generate_cover(
     Returns:
         Đường dẫn file cover đã tạo, hoặc None nếu thất bại
     """
+    if Image is None:
+        logger.error("❌ Thiếu thư viện Pillow. Chạy: pip install Pillow")
+        return None
+
     try:
         from config import HF_API_TOKEN
     except ImportError:
@@ -593,6 +601,10 @@ def generate_cover_from_dir(
     import os
     import json
 
+    if Image is None:
+        logger.error("❌ Thiếu thư viện Pillow. Chạy: pip install Pillow")
+        return None
+
     if not os.path.isdir(chapters_dir):
         logger.error(f"  ❌ Thư mục không tồn tại: {chapters_dir}")
         return None
@@ -642,6 +654,10 @@ def generate_cover_from_prompt(
     Tạo cover từ prompt có sẵn (không cần AI phân tích).
     Hữu ích khi muốn test hoặc chạy thủ công.
     """
+    if Image is None:
+        logger.error("❌ Thiếu thư viện Pillow. Chạy: pip install Pillow")
+        return None
+
     try:
         from config import HF_API_TOKEN
     except ImportError:

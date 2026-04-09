@@ -260,7 +260,12 @@ def _generate_images_with_confirm(title, genres_str, chapters, docx_paths, auto=
     - Không xoay quanh nhân vật: chỉ 3/10 hình có close_up nhân vật
     """
     import sys, hashlib, json as _json
-    from image_generator import sentence_to_image
+    try:
+        from image_generator import sentence_to_image
+    except ImportError as e:
+        print(f"⚠️  Thiếu thư viện để tạo thumbnail: {e}")
+        print("   Chạy: pip install Pillow")
+        return
 
     if not HF_API_TOKEN:
         print("⚠️  HF_API_TOKEN chưa được cấu hình — bỏ qua tạo thumbnail.")

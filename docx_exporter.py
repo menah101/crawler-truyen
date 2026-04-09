@@ -257,7 +257,197 @@ _ENGLISH_VIET_MAP = {
     'hot girl':    'gái xinh',
     'hot boy':     'trai đẹp',
     'full':        'đầy đủ',
+    # Từ AI hay để nguyên tiếng Anh trong văn cảnh Việt
+    'teaches':     'dạy',
+    'slightly':    'hơi',
+    'momento':     'khoảnh khắc',
+    'voice':       'giọng',
+    'moment':      'khoảnh khắc',
+    'anyway':      'dù sao',
+    'maybe':       'có lẽ',
+    'really':      'thật sự',
+    'actually':    'thực ra',
+    'seriously':   'nghiêm túc',
+    'important':   'quan trọng',
+    'special':     'đặc biệt',
+    'beautiful':   'xinh đẹp',
+    'dangerous':   'nguy hiểm',
+    'impossible':  'không thể',
+    'surprise':    'bất ngờ',
+    'feeling':     'cảm giác',
+    'amazing':     'tuyệt vời',
+    'terrible':    'kinh khủng',
+    'wonderful':   'tuyệt vời',
+    'horrible':    'khủng khiếp',
+    'lucky':       'may mắn',
+    'power':       'sức mạnh',
+    'problem':     'vấn đề',
+    'trouble':     'rắc rối',
+    'secret':      'bí mật',
+    'story':       'câu chuyện',
+    'heart':       'trái tim',
+    'chance':      'cơ hội',
+    'control':     'kiểm soát',
+    'memory':      'ký ức',
+    'forever':     'mãi mãi',
+    'future':      'tương lai',
+    'together':    'cùng nhau',
+    'trust':       'tin tưởng',
+    'focus':       'tập trung',
 }
+
+# ── Phát hiện từ hỏng do AI rewriter ─────────────────────────
+# Trong tiếng Việt, mỗi âm tiết chỉ có các tổ hợp nguyên âm hợp lệ.
+# AI rewriter đôi khi sinh ra ký tự bị merge/hỏng tạo thành tổ hợp nguyên âm
+# không tồn tại trong tiếng Việt.
+_TONED_VOWELS = set(
+    'àáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ'
+    'ÀÁẢÃẠẰẮẲẴẶẦẤẨẪẬÈÉẺẼẸỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌỒỐỔỖỘỜỚỞỠỢÙÚỦŨỤỪỨỬỮỰỲÝỶỸỴ'
+)
+_UNTONED_VOWELS = set('aăâeêioôơuưyAĂÂEÊIOÔƠUƯY')
+_ALL_VOWELS = _TONED_VOWELS | _UNTONED_VOWELS
+
+# Bảng strip dấu thanh về nguyên âm gốc
+_STRIP_TONE = {}
+_bases = [
+    ('aàáảãạ', 'a'), ('ăằắẳẵặ', 'ă'), ('âầấẩẫậ', 'â'),
+    ('eèéẻẽẹ', 'e'), ('êềếểễệ', 'ê'), ('iìíỉĩị', 'i'),
+    ('oòóỏõọ', 'o'), ('ôồốổỗộ', 'ô'), ('ơờớởỡợ', 'ơ'),
+    ('uùúủũụ', 'u'), ('ưừứửữự', 'ư'), ('yỳýỷỹỵ', 'y'),
+]
+for chars, base in _bases:
+    for c in chars:
+        _STRIP_TONE[c] = base
+        _STRIP_TONE[c.upper()] = base.upper() if base != 'đ' else 'Đ'
+# Nguyên âm không dấu thanh → giữ nguyên
+for c in 'aăâeêioôơuưyAĂÂEÊIOÔƠUƯY':
+    _STRIP_TONE[c] = c
+
+# Tổ hợp nguyên âm HỢP LỆ trong tiếng Việt (sau khi strip dấu thanh, lowercase)
+_VALID_VOWEL_CLUSTERS = {
+    # Đôi
+    'ai', 'ao', 'au', 'ay', 'âu', 'ây',
+    'eo', 'êu',
+    'ia', 'iê', 'iu',
+    'oa', 'oă', 'oe', 'oi', 'oo', 'ôi', 'ơi',
+    'ua', 'uâ', 'ue', 'uê', 'ui', 'uo', 'uô', 'uơ', 'uy',
+    'ưa', 'ưi', 'ươ', 'ưu',
+    'ya', 'yê',
+    # Ba
+    'oai', 'oay', 'oeo',
+    'uây', 'uya', 'uyê', 'uyu',
+    'ươi', 'ươu',
+    'iêu', 'yêu',
+    # Bốn
+    'uyên',  # technically vowel+n but appears in clusters
+}
+
+# Ký tự không phải tiếng Việt / Latin cơ bản (Devanagari, CJK lạc, v.v.)
+_NON_VIET_CHAR_RE = re.compile(r'[\u0900-\u097F\u4E00-\u9FFF\u3000-\u303F]+')
+
+
+def _is_valid_viet_syllable(word: str) -> bool:
+    """Kiểm tra xem từ có chứa tổ hợp nguyên âm hợp lệ hay không."""
+    # Xử lý phụ âm ghép chứa nguyên âm: gi-, qu-
+    # Trong "giấy", "gi" là phụ âm → 'i' không phải nguyên âm
+    # Trong "quyền", "qu" là phụ âm → 'u' không phải nguyên âm
+    w = word.lower()
+    skip_indices = set()
+    for i in range(len(w) - 1):
+        if w[i] == 'g' and w[i + 1] == 'i' and i + 2 < len(w) and w[i + 2] in _STRIP_TONE:
+            base_next = _STRIP_TONE.get(w[i + 2], w[i + 2]).lower()
+            if base_next in ('a', 'ă', 'â', 'e', 'ê', 'o', 'ô', 'ơ', 'u', 'ư'):
+                skip_indices.add(i + 1)  # skip 'i' in 'gi'
+        if w[i] == 'q' and w[i + 1] == 'u':
+            skip_indices.add(i + 1)  # skip 'u' in 'qu'
+
+    # Trích xuất chuỗi nguyên âm liên tiếp
+    vowel_runs = []
+    current_run = []
+    for idx, c in enumerate(word):
+        if idx in skip_indices:
+            # Ký tự này thuộc phụ âm ghép → xem như phụ âm
+            if current_run:
+                vowel_runs.append(current_run)
+                current_run = []
+            continue
+        if c in _ALL_VOWELS:
+            current_run.append(c)
+        else:
+            if current_run:
+                vowel_runs.append(current_run)
+                current_run = []
+    if current_run:
+        vowel_runs.append(current_run)
+
+    for run in vowel_runs:
+        if len(run) <= 1:
+            continue
+
+        # Strip dấu thanh và lowercase
+        base_run = ''.join(_STRIP_TONE.get(c, c) for c in run).lower()
+
+        # Đếm nguyên âm có dấu thanh trong run
+        toned_in_run = sum(1 for c in run if c in _TONED_VOWELS)
+
+        # Quy tắc 1: KHÔNG được có 2+ nguyên âm có dấu thanh liền nhau
+        if toned_in_run >= 2:
+            return False
+
+        # Quy tắc 2: tổ hợp nguyên âm (base) phải nằm trong danh sách hợp lệ
+        if base_run not in _VALID_VOWEL_CLUSTERS:
+            # Thử cắt bớt: có thể run dài hơn 1 cluster (VD: 3+ nguyên âm)
+            found_valid = False
+            for length in (3, 2):
+                if len(base_run) >= length:
+                    prefix = base_run[:length]
+                    suffix = base_run[length:]
+                    if prefix in _VALID_VOWEL_CLUSTERS and (not suffix or len(suffix) <= 1):
+                        found_valid = True
+                        break
+            if not found_valid and len(base_run) >= 2:
+                # Tổ hợp nguyên âm không hợp lệ
+                return False
+
+    return True
+
+
+def _remove_corrupted_words(text: str) -> str:
+    """
+    Phát hiện và xóa từ bị hỏng do AI rewriter.
+
+    Từ hỏng = chứa tổ hợp nguyên âm không hợp lệ trong tiếng Việt.
+    VD: "bấọng" (ấọ), "vòở" (òở), "chuyểình" (ểì), "khôơ" (ôơ),
+        "củên" (ủê), "tạên" (ạê), "nóôi" (óôi), "nhìên" (ìê)
+
+    Cũng xóa ký tự ngoại lai (Devanagari, CJK lạc, v.v.)
+    """
+    # 1. Xóa ký tự ngoại lai
+    text = _NON_VIET_CHAR_RE.sub('', text)
+
+    # 2. Xóa từ bị hỏng — tìm tất cả từ, kiểm tra từng từ
+    def _check_word(match):
+        word = match.group(0)
+        # Từ quá ngắn (1-2 ký tự) → giữ
+        if len(word) <= 2:
+            return word
+        # Từ chỉ chứa ASCII → có thể là tiếng Anh, để English map xử lý
+        if word.isascii():
+            return word
+        # Kiểm tra tổ hợp nguyên âm
+        if not _is_valid_viet_syllable(word):
+            return ''
+        return word
+
+    # Tìm mọi "từ" chứa ký tự tiếng Việt
+    text = re.sub(r'\b[\wÀ-ỹ]{3,}\b', _check_word, text, flags=re.UNICODE)
+
+    # 3. Dọn dẹp: xóa dấu cách thừa sau khi xóa từ
+    text = re.sub(r'  +', ' ', text)
+    text = re.sub(r'(?m)^ +', '', text)
+
+    return text
+
 
 # Lỗi lặp từ (AI hay lặp 2-3 lần cùng cụm)
 _REPEATED_WORD_RE = re.compile(
@@ -289,6 +479,9 @@ _QUOTE_FIXES = [
 
 def _fix_common_typos(text: str) -> str:
     """Sửa lỗi chính tả phổ biến từ AI rewrite."""
+
+    # 0. Xóa từ bị hỏng do AI rewriter (ưu tiên chạy đầu tiên)
+    text = _remove_corrupted_words(text)
 
     # 1. Thêm dấu cách sau dấu câu bị thiếu: "đi.Tôi" → "đi. Tôi"
     text = _MISSING_SPACE_AFTER_PUNCT_RE.sub(r'\1 \2', text)
@@ -368,12 +561,20 @@ def _fix_common_typos(text: str) -> str:
         )
 
     # 11. Thay từ tiếng Anh phổ biến → tiếng Việt
+    #     Tránh tạo từ lặp: "giọng voice" → "giọng giọng" (sai) → chỉ giữ 1
     for eng, viet in _ENGLISH_VIET_MAP.items():
-        text = re.sub(
-            rf'\b{re.escape(eng)}\b',
-            lambda m, r=viet: r[0].upper() + r[1:] if m.group(0)[0].isupper() else r,
-            text, flags=re.IGNORECASE,
-        )
+        def _eng_replace(m, r=viet):
+            replacement = r[0].upper() + r[1:] if m.group(0)[0].isupper() else r
+            # Kiểm tra từ trước/sau có trùng với replacement không
+            start, end = m.start(), m.end()
+            before = text[max(0, start - len(replacement) - 1):start].strip().lower()
+            after = text[end:end + len(replacement) + 1].strip().lower()
+            if before.endswith(replacement.lower()) or after.startswith(replacement.lower()):
+                return ''  # xóa từ English, từ Việt đã có sẵn bên cạnh
+            return replacement
+        text = re.sub(rf'\b{re.escape(eng)}\b', _eng_replace, text, flags=re.IGNORECASE)
+    # Dọn dẹp space thừa sau khi xóa English word
+    text = re.sub(r'  +', ' ', text)
 
     # 12. Xóa dòng chỉ chứa dấu cách
     text = re.sub(r'(?m)^[ \t]+$', '', text)
