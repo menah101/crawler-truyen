@@ -489,6 +489,20 @@ def _fix_common_typos(text: str) -> str:
     # 2. Xóa dấu câu kép: ".." → ".", "!!" → "!"
     text = _DOUBLE_PUNCT_RE.sub(r'\1', text)
 
+    # 2b. Sửa lỗi AI cắt giữa câu để lại dấu phẩy thừa:
+    #     "gấp gáp,." → "gấp gáp."    (comma + period → period)
+    #     "ngập ngừng,," → "ngập ngừng,"  (comma đôi)
+    #     ",,, anh nói" → ", anh nói"
+    text = re.sub(r',\s*\.', '.', text)
+    text = re.sub(r',\s*,+', ',', text)
+
+    # 2c. Xóa dấu phẩy LẺ LOI đứng một mình trên dòng do AI cắt mid-sentence
+    #     Ví dụ: "Hơi thở ,\n" hoặc "\n ,\n" (dấu phẩy trước newline, không có từ tiếp)
+    text = re.sub(r'\s+,(\s*\n)', r'\1', text)
+
+    # 2d. Xóa dấu "," đầu dòng (artifact của truncation)
+    text = re.sub(r'(\n)\s*,\s*', r'\1', text)
+
     # 3. Xóa dấu cách thừa trước dấu câu: "tôi ." → "tôi."
     text = _SPACE_BEFORE_PUNCT_RE.sub(r'\1', text)
 

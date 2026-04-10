@@ -154,27 +154,38 @@ def split_paragraphs(text):
     """
     Tách đoạn văn bị dính lại không có xuống dòng.
     Ví dụ: ...nổ ra:"Phóng viên?..."Gương mặt... → mỗi câu/đối thoại thành đoạn riêng.
+
+    QUAN TRỌNG: Phải phân biệt dấu " MỞ vs ĐÓNG đối thoại:
+    - MỞ:   ' "Anh nói...'  (space trước ")   → KHÔNG xuống dòng sau "
+    - ĐÓNG: '...thôi."'     (chữ cái trước ") → CÓ thể xuống dòng sau "
     """
     # Chuẩn hoá: bỏ \r, gộp nhiều dòng trống
     text = text.replace('\r\n', '\n').replace('\r', '\n')
     text = re.sub(r'\n{3,}', '\n\n', text)
 
-    # Chèn \n\n trước dấu " mở đầu đối thoại khi đứng sau ký tự kết câu hoặc :
-    # Ví dụ: sao?!"Gương  →  sao?!"\nGương   (dòng mới sau "  kết thúc đối thoại)
-    # Và:   nổ ra:"Phóng  →  nổ ra:\n"Phóng   (dòng mới trước " mở đầu)
+    # 1. Sau dấu ĐÓNG đối thoại [.?!] + " + chữ → xuống dòng
+    #    Ví dụ: 'thôi."Anh' → 'thôi."\nAnh'
+    text = re.sub(r'([.?!…]["»])\s*([^\n"«\s])', r'\1\n\2', text)
 
-    # 1. Sau dấu đóng đối thoại [.?!] + " + chữ thường/hoa → xuống dòng
-    text = re.sub(r'([.?!…]["»])\s*([^\n"«])', r'\1\n\2', text)
+    # 2. Trước dấu MỞ đối thoại: ':' + " → xuống dòng trước "
+    #    Ví dụ: 'nói:"Phóng' → 'nói:\n"Phóng'
+    text = re.sub(r'([:：])\s*(["«])', r'\1\n\2', text)
 
-    # 2. Trước dấu mở đối thoại: ký tự thường/dấu câu + : + " → xuống dòng trước "
-    text = re.sub(r'([:：])\s*([""«])', r'\1\n\2', text)
-
-    # 3. Sau đối thoại kết thúc bằng " (không có dấu câu rõ) + chữ hoa → xuống dòng
-    text = re.sub(r'([""»])\s*([A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯẠ-Ỹ])', r'\1\n\2', text)
+    # 3. Sau đối thoại kết thúc bằng " + chữ HOA → xuống dòng
+    #    Chỉ match khi " là dấu ĐÓNG (có chữ/ký tự liền trước, không có space)
+    #    Lookbehind (?<=\S) đảm bảo " không phải đứng đầu dòng hoặc sau space
+    text = re.sub(
+        r'(?<=[\wÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯạ-ỹ])(["»])\s+([A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯẠ-Ỹ])',
+        r'\1\n\2',
+        text,
+    )
 
     # 4. Gộp dòng đơn thành đoạn đôi để dễ đọc
-    # Nếu dòng trước kết thúc bằng . ! ? " và dòng sau bắt đầu bằng chữ → \n\n
     text = re.sub(r'([.?!…"»])\n([^\n])', r'\1\n\n\2', text)
+
+    # 5. Thu dọn: nếu 1 dòng CHỈ chứa " hoặc « đơn lẻ → gộp vào dòng kế tiếp
+    #    (sửa hậu quả khi AI/regex vô tình tách " ra thành dòng riêng)
+    text = re.sub(r'\n\s*(["«»])\s*\n+', r'\n\1', text)
 
     # Dọn dẹp cuối cùng
     text = re.sub(r'\n{3,}', '\n\n', text).strip()
@@ -242,11 +253,14 @@ try:
 except ImportError:
     _GROQ_FALLBACK_MODELS = []
 
-GEMINI_MODELS = [
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-2.5-pro",
-]
+try:
+    from config import GEMINI_FALLBACK_MODELS as GEMINI_MODELS
+except ImportError:
+    GEMINI_MODELS = [
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
+        "gemini-2.5-flash-lite",
+    ]
 
 
 def _call_gemini(text, api_key, model, temperature=0.8):
@@ -332,7 +346,11 @@ def rewrite_anthropic(text, api_key, model, temperature=0.8):
 # ============================================================
 
 def rewrite_deepseek(text, api_key, model, temperature=0.8):
-    """Viết lại bằng DeepSeek API (OpenAI-compatible)."""
+    """Viết lại bằng DeepSeek API (OpenAI-compatible).
+
+    Dùng max_tokens=8192 (max cho deepseek-chat) để tránh bị cắt giữa chừng.
+    Nếu vẫn bị cắt (finish_reason='length'), trả về None để caller fallback.
+    """
     import requests
     resp = requests.post(
         "https://api.deepseek.com/chat/completions",
@@ -342,17 +360,28 @@ def rewrite_deepseek(text, api_key, model, temperature=0.8):
         },
         json={
             "model": model,
-            "max_tokens": 4096,
+            "max_tokens": 8192,
             "temperature": temperature,
             "messages": [{"role": "user", "content": f"{REWRITE_PROMPT}\n\n---\n\n{text}"}],
         },
-        timeout=120,
+        timeout=180,
     )
     if resp.status_code != 200:
         logger.error(f"    ❌ DeepSeek error {resp.status_code}: {resp.text[:200]}")
         return None
     try:
-        return resp.json()["choices"][0]["message"]["content"].strip()
+        data = resp.json()
+        choice = data["choices"][0]
+        content = choice["message"]["content"].strip()
+        finish = choice.get("finish_reason", "")
+        if finish == "length":
+            # Output bị cắt giữa chừng → không dùng được, fallback
+            logger.warning(
+                f"    ⚠️ DeepSeek bị cắt (finish_reason=length, {len(content)} chars) — "
+                f"chunk quá dài, fallback local"
+            )
+            return None
+        return content
     except Exception:
         return None
 
@@ -576,15 +605,28 @@ def check_rewriter():
     if provider == "gemini":
         if not GEMINI_API_KEY:
             return False, "GEMINI_API_KEY chưa set"
-        try:
-            resp = _call_gemini(ping, GEMINI_API_KEY, GEMINI_MODEL)
+        # Thử lần lượt model chính + toàn bộ fallback. 503/429 → thử model kế.
+        models_to_try = [GEMINI_MODEL] + [m for m in GEMINI_MODELS if m != GEMINI_MODEL]
+        last_status = None
+        for m in models_to_try:
+            try:
+                resp = _call_gemini(ping, GEMINI_API_KEY, m)
+            except Exception as e:
+                last_status = f"lỗi kết nối — {e}"
+                continue
             if resp.status_code == 200:
-                return True, f"Gemini OK ({GEMINI_MODEL})"
-            if resp.status_code == 429:
-                return False, f"Gemini: hết quota (429) — {GEMINI_MODEL}"
-            return False, f"Gemini: HTTP {resp.status_code}"
-        except Exception as e:
-            return False, f"Gemini: lỗi kết nối — {e}"
+                if m != GEMINI_MODEL:
+                    return True, f"Gemini OK ({m}) — {GEMINI_MODEL} không khả dụng, dùng fallback"
+                return True, f"Gemini OK ({m})"
+            last_status = f"HTTP {resp.status_code}"
+            # 503 = overloaded, 429 = hết quota, 500 = server error → thử model kế
+            if resp.status_code in (429, 500, 502, 503, 504):
+                logger.warning(f"    ⚠️ Gemini {m}: {resp.status_code} — thử model khác...")
+                time.sleep(1)
+                continue
+            # Lỗi khác (401, 403...) → fail ngay, không thử tiếp
+            return False, f"Gemini: {last_status} — {m}"
+        return False, f"Gemini: tất cả model đều không khả dụng ({last_status})"
 
     # ── Anthropic ──
     if provider == "anthropic":
@@ -1020,6 +1062,18 @@ def rewrite_chapter(content, novel_title=""):  # noqa: ARG001
             return None
         return None
 
+    def _is_truncated(text: str) -> bool:
+        """Phát hiện output bị cắt giữa chừng: không kết thúc bằng dấu câu."""
+        if not text:
+            return True
+        # Lấy 30 ký tự cuối, bỏ khoảng trắng/newline
+        tail = text.rstrip()[-30:] if len(text) >= 30 else text.rstrip()
+        if not tail:
+            return True
+        last_char = tail[-1]
+        # Kết thúc hợp lệ: dấu câu, dấu ngoặc kép đóng, hoặc ba chấm
+        return last_char not in '.!?…。！？"”\')\u2019'
+
     rewritten = []
     for i, chunk in enumerate(chunks):
         if len(chunks) > 1:
@@ -1028,27 +1082,40 @@ def rewrite_chapter(content, novel_title=""):  # noqa: ARG001
         # Tầng 1: gọi provider với temperature mặc định 0.8
         result = _call_provider(chunk, temperature=0.8)
 
-        # Tầng 2: nếu output hỏng nhiều → retry với temperature thấp hơn
+        # Tầng 2: nếu output hỏng nhiều hoặc bị cắt → retry với temperature thấp hơn
         if result and len(result) > len(chunk) * 0.3:
             ratio = corrupted_ratio(result)
-            if ratio > CORRUPT_THRESHOLD:
+            truncated = _is_truncated(result)
+
+            if ratio > CORRUPT_THRESHOLD or truncated:
+                reason = []
+                if ratio > CORRUPT_THRESHOLD:
+                    reason.append(f"hỏng {ratio*100:.1f}%")
+                if truncated:
+                    reason.append("cắt giữa chừng")
                 logger.warning(
-                    f"    ⚠️ Output hỏng {ratio*100:.1f}% từ — retry với temperature=0.4"
+                    f"    ⚠️ Output {', '.join(reason)} — retry với temperature=0.4"
                 )
                 retry = _call_provider(chunk, temperature=0.4)
                 if retry and len(retry) > len(chunk) * 0.3:
                     retry_ratio = corrupted_ratio(retry)
-                    if retry_ratio < ratio:
+                    retry_truncated = _is_truncated(retry)
+                    # Retry tốt hơn = ít hỏng hơn VÀ không bị cắt (hoặc cả gốc đều cắt)
+                    if (retry_ratio <= ratio and not retry_truncated) or \
+                       (retry_ratio < ratio and retry_truncated == truncated):
                         logger.info(
                             f"    ✅ Retry tốt hơn: {ratio*100:.1f}% → {retry_ratio*100:.1f}%"
+                            + (" (không cắt)" if truncated and not retry_truncated else "")
                         )
                         result = retry
                         ratio = retry_ratio
+                        truncated = retry_truncated
 
-            # Tầng 3: nếu vẫn hỏng quá nhiều (>10%) → fallback local
-            if ratio > 0.10:
+            # Tầng 3: nếu vẫn hỏng quá nhiều hoặc cắt → fallback local
+            if ratio > 0.10 or truncated:
                 logger.warning(
-                    f"    ⚠️ Output vẫn hỏng {ratio*100:.1f}% sau retry — dùng local"
+                    f"    ⚠️ Output vẫn không ổn (hỏng {ratio*100:.1f}%, "
+                    f"cắt={truncated}) sau retry — dùng local"
                 )
                 result = None
 

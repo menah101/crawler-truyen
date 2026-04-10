@@ -31,15 +31,17 @@ CRAWL_SCHEDULE = "08:00"
 REQUEST_DELAY = 1.5
 
 # === Rewriter thứ tự model được yêu tiên ===
+# LƯU Ý: Llama (huggingface/groq) có lỗi tokenizer với tiếng Việt → sinh ra
+# chữ hỏng kiểu "mắững", "tôôi", "vọững". Khuyên dùng Gemini/Claude/DeepSeek.
 REWRITE_ENABLED = True
-REWRITE_PROVIDER = "huggingface"    # 1."anthropic" | 2."gemini" | 3."deepseek" | 4."groq" | 5."huggingface" | 6."ollama" | 7."local"
+REWRITE_PROVIDER = "deepseek"    # 1."gemini" | 2."anthropic" | 3."deepseek" | 4."groq" | 5."huggingface" | 6."ollama" | 7."local"
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = "gemini-2.5-flash-lite"
-GEMINI_FALLBACK_MODELS = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-3.1-flash-lite"]
+GEMINI_MODEL = "gemini-2.5-flash"    # Ưu tiên flash > flash-lite cho chất lượng tiếng Việt
+GEMINI_FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-lite"]
 
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
 DEEPSEEK_MODEL = "deepseek-chat"   # hoặc "deepseek-reasoner"
@@ -63,7 +65,7 @@ GROQ_FALLBACK_MODELS = [
     "llama3-70b-8192",           # fallback thêm
 ]
 
-REWRITE_CHUNK_SIZE = 1500   # Groq free tier: ~12k TPM — chunk nhỏ hơn tránh rate limit
+REWRITE_CHUNK_SIZE = 1200   # DeepSeek/Gemini: 1200 chars input → ~2500 chars output an toàn trong 8192 tokens
 REWRITE_CHUNK_SIZE_OLLAMA = 600   # Ollama local model: nhỏ hơn để model follow instruction tốt hơn
 REWRITE_DELAY = 5.0         # Tăng delay giữa các chunk
 
