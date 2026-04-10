@@ -11,6 +11,115 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+# ─────────────────────────────────────────────────────────────────
+# Phát hiện ký tự / từ hỏng do AI rewriter sinh ra
+# ─────────────────────────────────────────────────────────────────
+# Nguyên âm có dấu thanh tiếng Việt (sắc, huyền, hỏi, ngã, nặng)
+_TONED_VOWELS = set(
+    'àáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ'
+    'ÀÁẢÃẠẰẮẲẴẶẦẤẨẪẬÈÉẺẼẸỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌỒỐỔỖỘỜỚỞỠỢÙÚỦŨỤỪỨỬỮỰỲÝỶỸỴ'
+)
+_UNTONED_VOWELS = set('aăâeêioôơuưyAĂÂEÊIOÔƠUƯY')
+_ALL_VOWELS = _TONED_VOWELS | _UNTONED_VOWELS
+
+_STRIP_TONE_MAP = {}
+for _chars, _base in [
+    ('aàáảãạ', 'a'), ('ăằắẳẵặ', 'ă'), ('âầấẩẫậ', 'â'),
+    ('eèéẻẽẹ', 'e'), ('êềếểễệ', 'ê'), ('iìíỉĩị', 'i'),
+    ('oòóỏõọ', 'o'), ('ôồốổỗộ', 'ô'), ('ơờớởỡợ', 'ơ'),
+    ('uùúủũụ', 'u'), ('ưừứửữự', 'ư'), ('yỳýỷỹỵ', 'y'),
+]:
+    for _c in _chars:
+        _STRIP_TONE_MAP[_c] = _base
+        _STRIP_TONE_MAP[_c.upper()] = _base.upper()
+for _c in 'aăâeêioôơuưyAĂÂEÊIOÔƠUƯY':
+    _STRIP_TONE_MAP[_c] = _c
+
+# Tổ hợp nguyên âm hợp lệ trong tiếng Việt (đã strip dấu thanh, lowercase)
+_VALID_VOWEL_CLUSTERS = {
+    'ai', 'ao', 'au', 'ay', 'âu', 'ây',
+    'eo', 'êu',
+    'ia', 'iê', 'iu',
+    'oa', 'oă', 'oe', 'oi', 'oo', 'ôi', 'ơi',
+    'ua', 'uâ', 'ue', 'uê', 'ui', 'uo', 'uô', 'uơ', 'uy',
+    'ưa', 'ưi', 'ươ', 'ưu',
+    'ya', 'yê',
+    'oai', 'oay', 'oeo', 'uây', 'uya', 'uyê', 'uyu',
+    'ươi', 'ươu', 'iêu', 'yêu',
+}
+
+
+def _is_valid_viet_word(word: str) -> bool:
+    """Kiểm tra xem một từ có phải âm tiết tiếng Việt hợp lệ không."""
+    if len(word) <= 2:
+        return True
+    # Từ chứa ASCII thuần → tiếng Anh / tên riêng, bỏ qua
+    if word.isascii():
+        return True
+
+    # Xử lý phụ âm ghép gi-/qu- (vowel trong cụm phụ âm)
+    w = word.lower()
+    skip = set()
+    for i in range(len(w) - 1):
+        if w[i] == 'g' and w[i + 1] == 'i' and i + 2 < len(w):
+            base_next = _STRIP_TONE_MAP.get(w[i + 2], w[i + 2]).lower()
+            if base_next in ('a', 'ă', 'â', 'e', 'ê', 'o', 'ô', 'ơ', 'u', 'ư'):
+                skip.add(i + 1)
+        if w[i] == 'q' and w[i + 1] == 'u':
+            skip.add(i + 1)
+
+    # Trích chuỗi nguyên âm liên tiếp
+    runs = []
+    cur = []
+    for idx, c in enumerate(word):
+        if idx in skip:
+            if cur:
+                runs.append(cur); cur = []
+            continue
+        if c in _ALL_VOWELS:
+            cur.append(c)
+        else:
+            if cur:
+                runs.append(cur); cur = []
+    if cur:
+        runs.append(cur)
+
+    for run in runs:
+        if len(run) <= 1:
+            continue
+        # Không được có 2+ nguyên âm có dấu thanh liền nhau
+        toned_in_run = sum(1 for c in run if c in _TONED_VOWELS)
+        if toned_in_run >= 2:
+            return False
+        # Base cluster phải hợp lệ
+        base = ''.join(_STRIP_TONE_MAP.get(c, c) for c in run).lower()
+        if base in _VALID_VOWEL_CLUSTERS:
+            continue
+        # Thử cắt tổ hợp dài hơn (3-4 nguyên âm)
+        found = False
+        for length in (3, 2):
+            if len(base) >= length and base[:length] in _VALID_VOWEL_CLUSTERS:
+                found = True
+                break
+        if not found and len(base) >= 2:
+            return False
+    return True
+
+
+def corrupted_ratio(text: str) -> float:
+    """
+    Trả về tỉ lệ từ bị hỏng trong text (0.0 - 1.0).
+
+    Từ hỏng = chứa tổ hợp nguyên âm không tồn tại trong tiếng Việt
+    (VD: "mắững", "tôôi", "vọững", "bấọng", "củên").
+    """
+    words = re.findall(r'[\wÀ-ỹ]{3,}', text, re.UNICODE)
+    if not words:
+        return 0.0
+    bad = sum(1 for w in words if not _is_valid_viet_word(w))
+    return bad / len(words)
+
+
 def strip_foreign_chars(text: str) -> str:
     """
     Xóa ký tự ngoại ngữ sót lại sau khi AI rewrite:
@@ -140,26 +249,26 @@ GEMINI_MODELS = [
 ]
 
 
-def _call_gemini(text, api_key, model):
+def _call_gemini(text, api_key, model, temperature=0.8):
     import requests
     return requests.post(
         f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}",
         headers={"Content-Type": "application/json"},
         json={
             "contents": [{"parts": [{"text": f"{REWRITE_PROMPT}\n\n---\n\n{text}"}]}],
-            "generationConfig": {"temperature": 0.8, "maxOutputTokens": 4096},
+            "generationConfig": {"temperature": temperature, "maxOutputTokens": 4096},
         },
         timeout=120,
     )
 
 
-def rewrite_gemini(text, api_key, model):
+def rewrite_gemini(text, api_key, model, temperature=0.8):
     """Gemini rewrite — tự fallback qua 3 model khi 429."""
     models = [model] + [m for m in GEMINI_MODELS if m != model]
 
     for m in models:
         try:
-            resp = _call_gemini(text, api_key, m)
+            resp = _call_gemini(text, api_key, m, temperature=temperature)
         except Exception as e:
             logger.error(f"    ❌ Gemini {m} error: {e}")
             continue
@@ -191,7 +300,7 @@ def rewrite_gemini(text, api_key, model):
 # ANTHROPIC (CLAUDE)
 # ============================================================
 
-def rewrite_anthropic(text, api_key, model):
+def rewrite_anthropic(text, api_key, model, temperature=0.8):
     """Viết lại bằng Claude API."""
     import requests
     resp = requests.post(
@@ -204,6 +313,7 @@ def rewrite_anthropic(text, api_key, model):
         json={
             "model": model,
             "max_tokens": 4096,
+            "temperature": temperature,
             "messages": [{"role": "user", "content": f"{REWRITE_PROMPT}\n\n---\n\n{text}"}],
         },
         timeout=120,
@@ -221,7 +331,7 @@ def rewrite_anthropic(text, api_key, model):
 # DEEPSEEK
 # ============================================================
 
-def rewrite_deepseek(text, api_key, model):
+def rewrite_deepseek(text, api_key, model, temperature=0.8):
     """Viết lại bằng DeepSeek API (OpenAI-compatible)."""
     import requests
     resp = requests.post(
@@ -233,7 +343,7 @@ def rewrite_deepseek(text, api_key, model):
         json={
             "model": model,
             "max_tokens": 4096,
-            "temperature": 0.8,
+            "temperature": temperature,
             "messages": [{"role": "user", "content": f"{REWRITE_PROMPT}\n\n---\n\n{text}"}],
         },
         timeout=120,
@@ -251,7 +361,7 @@ def rewrite_deepseek(text, api_key, model):
 # OLLAMA (local)
 # ============================================================
 
-def rewrite_ollama(text, base_url, model):
+def rewrite_ollama(text, base_url, model, temperature=0.8):
     """Viết lại bằng Ollama chạy local (OpenAI-compatible endpoint)."""
     import requests
     try:
@@ -261,7 +371,7 @@ def rewrite_ollama(text, base_url, model):
             json={
                 "model": model,
                 "max_tokens": 4096,
-                "temperature": 0.8,
+                "temperature": temperature,
                 "messages": [{"role": "user", "content": f"{REWRITE_PROMPT_OLLAMA}\n\n---\n\n{text}"}],
             },
             timeout=300,  # local model có thể chậm hơn
@@ -286,7 +396,7 @@ def rewrite_ollama(text, base_url, model):
 # HUGGINGFACE INFERENCE API
 # ============================================================
 
-def rewrite_huggingface(text, api_token, model):
+def rewrite_huggingface(text, api_token, model, temperature=0.8):
     """Viết lại bằng HuggingFace Serverless Inference API — tự fallback qua các model."""
     import requests
     try:
@@ -308,7 +418,7 @@ def rewrite_huggingface(text, api_token, model):
                 json={
                     "model": m,
                     "max_tokens": 4096,
-                    "temperature": 0.8,
+                    "temperature": temperature,
                     "messages": [{"role": "user", "content": f"{REWRITE_PROMPT}\n\n---\n\n{text}"}],
                 },
                 timeout=180,  # cold start có thể chậm
@@ -348,7 +458,7 @@ def rewrite_huggingface(text, api_token, model):
 # GROQ
 # ============================================================
 
-def rewrite_groq(text, api_key, model):
+def rewrite_groq(text, api_key, model, temperature=0.8):
     """Viết lại bằng Groq API — tự fallback khi bị rate limit (429)."""
     import requests
 
@@ -365,7 +475,7 @@ def rewrite_groq(text, api_key, model):
                 json={
                     "model": m,
                     "max_tokens": 4096,
-                    "temperature": 0.8,
+                    "temperature": temperature,
                     "messages": [{"role": "user", "content": f"{REWRITE_PROMPT}\n\n---\n\n{text}"}],
                 },
                 timeout=120,
@@ -887,27 +997,60 @@ def rewrite_chapter(content, novel_title=""):  # noqa: ARG001
     if current:
         chunks.append('\n\n'.join(current))
 
+    # Ngưỡng "hỏng" cho phép: > 2% từ trong chunk hỏng → retry
+    CORRUPT_THRESHOLD = 0.02
+
+    def _call_provider(chunk_text: str, temperature: float):
+        """Gọi provider hiện tại với nhiệt độ chỉ định. Trả về text hoặc None."""
+        try:
+            if provider == "anthropic":
+                return rewrite_anthropic(chunk_text, ANTHROPIC_API_KEY, ANTHROPIC_MODEL, temperature=temperature)
+            elif provider == "gemini":
+                return rewrite_gemini(chunk_text, GEMINI_API_KEY, GEMINI_MODEL, temperature=temperature)
+            elif provider == "deepseek":
+                return rewrite_deepseek(chunk_text, DEEPSEEK_API_KEY, DEEPSEEK_MODEL, temperature=temperature)
+            elif provider == "groq":
+                return rewrite_groq(chunk_text, GROQ_API_KEY, GROQ_MODEL, temperature=temperature)
+            elif provider == "huggingface":
+                return rewrite_huggingface(chunk_text, HF_API_TOKEN, HF_REWRITE_MODEL, temperature=temperature)
+            elif provider == "ollama":
+                return rewrite_ollama(chunk_text, OLLAMA_BASE_URL, OLLAMA_MODEL, temperature=temperature)
+        except Exception as e:
+            logger.error(f"    ❌ Rewrite error: {e}")
+            return None
+        return None
+
     rewritten = []
     for i, chunk in enumerate(chunks):
         if len(chunks) > 1:
             logger.info(f"    ✍️ Đoạn {i+1}/{len(chunks)}...")
 
-        result = None
-        try:
-            if provider == "anthropic":
-                result = rewrite_anthropic(chunk, ANTHROPIC_API_KEY, ANTHROPIC_MODEL)
-            elif provider == "gemini":
-                result = rewrite_gemini(chunk, GEMINI_API_KEY, GEMINI_MODEL)
-            elif provider == "deepseek":
-                result = rewrite_deepseek(chunk, DEEPSEEK_API_KEY, DEEPSEEK_MODEL)
-            elif provider == "groq":
-                result = rewrite_groq(chunk, GROQ_API_KEY, GROQ_MODEL)
-            elif provider == "huggingface":
-                result = rewrite_huggingface(chunk, HF_API_TOKEN, HF_REWRITE_MODEL)
-            elif provider == "ollama":
-                result = rewrite_ollama(chunk, OLLAMA_BASE_URL, OLLAMA_MODEL)
-        except Exception as e:
-            logger.error(f"    ❌ Rewrite error: {e}")
+        # Tầng 1: gọi provider với temperature mặc định 0.8
+        result = _call_provider(chunk, temperature=0.8)
+
+        # Tầng 2: nếu output hỏng nhiều → retry với temperature thấp hơn
+        if result and len(result) > len(chunk) * 0.3:
+            ratio = corrupted_ratio(result)
+            if ratio > CORRUPT_THRESHOLD:
+                logger.warning(
+                    f"    ⚠️ Output hỏng {ratio*100:.1f}% từ — retry với temperature=0.4"
+                )
+                retry = _call_provider(chunk, temperature=0.4)
+                if retry and len(retry) > len(chunk) * 0.3:
+                    retry_ratio = corrupted_ratio(retry)
+                    if retry_ratio < ratio:
+                        logger.info(
+                            f"    ✅ Retry tốt hơn: {ratio*100:.1f}% → {retry_ratio*100:.1f}%"
+                        )
+                        result = retry
+                        ratio = retry_ratio
+
+            # Tầng 3: nếu vẫn hỏng quá nhiều (>10%) → fallback local
+            if ratio > 0.10:
+                logger.warning(
+                    f"    ⚠️ Output vẫn hỏng {ratio*100:.1f}% sau retry — dùng local"
+                )
+                result = None
 
         if result and len(result) > len(chunk) * 0.3:
             rewritten.append(split_paragraphs(strip_foreign_chars(result)))
