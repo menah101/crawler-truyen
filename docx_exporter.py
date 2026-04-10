@@ -14,6 +14,11 @@ import os
 import re
 import logging
 
+try:
+    from vi_validator import process_text as _vi_process_text
+except ImportError:
+    from crawler.vi_validator import process_text as _vi_process_text  # type: ignore
+
 logger = logging.getLogger(__name__)
 
 
@@ -162,42 +167,51 @@ _TYPO_MAP = {
 }
 
 # ── Lỗi OCR / ký tự bị merge / hỏng ──────────────────────────
-# Từ bị hỏng → từ đúng (OCR đọc sai, ký tự bị dính/mất)
+# CHÚ Ý: Các lỗi thuần túy ký tự lặp (ngưười, nhữững, khôông, ươương, ...) đã
+# được xử lý tự động bằng `vi_validator.process_text()` — KHÔNG cần liệt kê
+# trong _OCR_MAP nữa. Map này chỉ giữ các lỗi ngữ cảnh mà validator không
+# suy luận ra được (từ ghép đặc biệt, typo cố định hay gặp).
 _OCR_MAP = {
-    # Ký tự bị merge (2 từ dính thành 1, mất chữ giữa)
-    'đượều':  'được Kiều',
-    'củôi':   'của tôi',
-    'khôì':   'không',
-    'đượợc':  'được',
-    'ngưươi': 'người',
-    'nhưưng': 'nhưng',
-    'đưươc':  'được',
-    'khôông':  'không',
-    'ngườời':  'người',
-    'nhữững':  'những',
-    'nhưưng':  'nhưng',
-    'chuuyện': 'chuyện',
-    'truuyện': 'truyện',
-    'đưường':  'đường',
-    'tưưởng':  'tưởng',
-    'phưương':  'phương',
-    'thưương':  'thương',
-    'hưướng':  'hướng',
-    'vưương':  'vương',
-    # Ký tự bị lỗi dấu
-    'mắóa':  'mắt khóa',
-    'ngưòi':  'người',
-    'đưòng':  'đường',
-    'thưòng': 'thường',
-    'nưóc':   'nước',
-    'đưóc':   'được',
-    'cưòi':   'cười',
-    'tưòng':  'tường',
-    'lưòi':   'lười',
-    'sưòng':  'sường',
-    'vưòn':   'vườn',
-    'trưóc':  'trước',
+    # Lỗi ngữ cảnh: AI sinh ra cụm từ đúng chính tả nhưng sai nghĩa
+    # hoặc ghép 2 từ thành 1 âm tiết lạ (validator không đoán được).
+    'vậy sánh': 'so sánh',
+    'bị xúc Lưu': 'bị xúc phạm',
 }
+
+# ── Content filter workaround ──────────────────────────
+# DeepSeek thay "chết" → "chít" để né content filter bạo lực.
+# Phải thay lại vì "chít" không phải từ đúng trong ngữ cảnh tử vong.
+# Chỉ áp dụng khi "chít" đi kèm từ context liên quan đến chết/hấp hối.
+_DEATH_EUPHEMISM_PATTERNS = [
+    # "cái chít" → "cái chết" (chắc chắn 100%)
+    (r'\bcái\s+chít\b', 'cái chết'),
+    # "bị chít" → "bị chết"
+    (r'\bbị\s+chít\b', 'bị chết'),
+    # "đã chít" → "đã chết"
+    (r'\bđã\s+chít\b', 'đã chết'),
+    # "chít oan" → "chết oan"
+    (r'\bchít\s+oan\b', 'chết oan'),
+    # "chít thảm" → "chết thảm"
+    (r'\bchít\s+thảm\b', 'chết thảm'),
+    # "chít rồi" → "chết rồi"
+    (r'\bchít\s+rồi\b', 'chết rồi'),
+    # "ai chít" → "ai chết"
+    (r'\bai\s+chít\b', 'ai chết'),
+    # "chít vì" → "chết vì"
+    (r'\bchít\s+vì\b', 'chết vì'),
+    # "tự chít" → "tự chết"
+    (r'\btự\s+chít\b', 'tự chết'),
+    # "sắp chít" → "sắp chết"
+    (r'\bsắp\s+chít\b', 'sắp chết'),
+    # "chít trong/tại/ở" → "chết trong/tại/ở"
+    (r'\bchít\s+(trong|tại|ở|dưới|trên)\b', r'chết \1'),
+    # "người chít" → "người chết"
+    (r'\bngười\s+chít\b', 'người chết'),
+    # "vụ chít" → "vụ chết"
+    (r'\bvụ\s+chít\b', 'vụ chết'),
+    # "cảnh chít" → "cảnh chết"
+    (r'\bcảnh\s+chít\b', 'cảnh chết'),
+]
 
 # Từ tiếng Anh phổ biến trong truyện → tiếng Việt chuẩn
 _ENGLISH_VIET_MAP = {
@@ -226,7 +240,7 @@ _ENGLISH_VIET_MAP = {
     'stress':      'căng thẳng',
     'style':       'phong cách',
     'trend':       'xu hướng',
-    'so':          'vậy',
+    # KHÔNG map 'so' → 'vậy': 'so' là từ Việt hợp lệ (so sánh, so với)
     'look':        'nhìn',
     'kiss':        'hôn',
     'sweet':       'ngọt ngào',
@@ -480,8 +494,43 @@ _QUOTE_FIXES = [
 def _fix_common_typos(text: str) -> str:
     """Sửa lỗi chính tả phổ biến từ AI rewrite."""
 
-    # 0. Xóa từ bị hỏng do AI rewriter (ưu tiên chạy đầu tiên)
+    # 0. Validator âm tiết tiếng Việt — sửa corruption ký tự tự động
+    #    (thay cho việc liệt kê thủ công trong _OCR_MAP trước đây)
+    text, stats = _vi_process_text(text)
+    if stats.corrected:
+        logger.info(
+            "vi_validator: sửa %d/%d âm tiết hỏng (ratio=%.2f%%)",
+            stats.corrected, stats.total_words, stats.invalid_ratio * 100,
+        )
+    if stats.uncorrectable:
+        # Log tối đa 10 từ để tiện review nhưng tránh spam log
+        sample = stats.uncorrectable[:10]
+        logger.warning(
+            "vi_validator: %d âm tiết không tự sửa được (ví dụ: %s)",
+            len(stats.uncorrectable), sample,
+        )
+
+    # 0a. Xóa từ bị hỏng do AI rewriter (phần residual sau validator)
     text = _remove_corrupted_words(text)
+
+    # 0b. Sửa "chít" → "chết" khi bị DeepSeek content filter thay thế
+    #     Dùng helper giữ capitalization gốc (Cái chít → Cái chết)
+    def _preserve_case(match, replacement):
+        orig = match.group(0)
+        if orig and orig[0].isupper():
+            return replacement[0].upper() + replacement[1:]
+        return replacement
+
+    for pattern, replacement in _DEATH_EUPHEMISM_PATTERNS:
+        if r'\1' in replacement:
+            # Pattern có group backref → dùng re.sub bình thường
+            text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+        else:
+            text = re.sub(
+                pattern,
+                lambda m, r=replacement: _preserve_case(m, r),
+                text, flags=re.IGNORECASE,
+            )
 
     # 1. Thêm dấu cách sau dấu câu bị thiếu: "đi.Tôi" → "đi. Tôi"
     text = _MISSING_SPACE_AFTER_PUNCT_RE.sub(r'\1 \2', text)
@@ -549,7 +598,12 @@ def _fix_common_typos(text: str) -> str:
 
     for wrong, right in _OCR_MAP.items():
         if ' ' in wrong:
-            text = text.replace(wrong, right)
+            # Cụm có space → replace case-insensitive, giữ capitalization
+            text = re.sub(
+                re.escape(wrong),
+                lambda m, r=right: _ocr_replace(m, r),
+                text, flags=re.IGNORECASE,
+            )
         else:
             text = re.sub(
                 rf'\b{re.escape(wrong)}\b',

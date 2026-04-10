@@ -8,116 +8,31 @@ import time
 import random
 import logging
 
+try:
+    from vi_validator import validate_text as _vi_validate_text
+except ImportError:
+    from crawler.vi_validator import validate_text as _vi_validate_text  # type: ignore
+
 logger = logging.getLogger(__name__)
 
 
 # ─────────────────────────────────────────────────────────────────
-# Phát hiện ký tự / từ hỏng do AI rewriter sinh ra
+# Phát hiện từ hỏng do AI rewriter sinh ra
 # ─────────────────────────────────────────────────────────────────
-# Nguyên âm có dấu thanh tiếng Việt (sắc, huyền, hỏi, ngã, nặng)
-_TONED_VOWELS = set(
-    'àáảãạằắẳẵặầấẩẫậèéẻẽẹềếểễệìíỉĩịòóỏõọồốổỗộờớởỡợùúủũụừứửữựỳýỷỹỵ'
-    'ÀÁẢÃẠẰẮẲẴẶẦẤẨẪẬÈÉẺẼẸỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌỒỐỔỖỘỜỚỞỠỢÙÚỦŨỤỪỨỬỮỰỲÝỶỸỴ'
-)
-_UNTONED_VOWELS = set('aăâeêioôơuưyAĂÂEÊIOÔƠUƯY')
-_ALL_VOWELS = _TONED_VOWELS | _UNTONED_VOWELS
-
-_STRIP_TONE_MAP = {}
-for _chars, _base in [
-    ('aàáảãạ', 'a'), ('ăằắẳẵặ', 'ă'), ('âầấẩẫậ', 'â'),
-    ('eèéẻẽẹ', 'e'), ('êềếểễệ', 'ê'), ('iìíỉĩị', 'i'),
-    ('oòóỏõọ', 'o'), ('ôồốổỗộ', 'ô'), ('ơờớởỡợ', 'ơ'),
-    ('uùúủũụ', 'u'), ('ưừứửữự', 'ư'), ('yỳýỷỹỵ', 'y'),
-]:
-    for _c in _chars:
-        _STRIP_TONE_MAP[_c] = _base
-        _STRIP_TONE_MAP[_c.upper()] = _base.upper()
-for _c in 'aăâeêioôơuưyAĂÂEÊIOÔƠUƯY':
-    _STRIP_TONE_MAP[_c] = _c
-
-# Tổ hợp nguyên âm hợp lệ trong tiếng Việt (đã strip dấu thanh, lowercase)
-_VALID_VOWEL_CLUSTERS = {
-    'ai', 'ao', 'au', 'ay', 'âu', 'ây',
-    'eo', 'êu',
-    'ia', 'iê', 'iu',
-    'oa', 'oă', 'oe', 'oi', 'oo', 'ôi', 'ơi',
-    'ua', 'uâ', 'ue', 'uê', 'ui', 'uo', 'uô', 'uơ', 'uy',
-    'ưa', 'ưi', 'ươ', 'ưu',
-    'ya', 'yê',
-    'oai', 'oay', 'oeo', 'uây', 'uya', 'uyê', 'uyu',
-    'ươi', 'ươu', 'iêu', 'yêu',
-}
-
-
-def _is_valid_viet_word(word: str) -> bool:
-    """Kiểm tra xem một từ có phải âm tiết tiếng Việt hợp lệ không."""
-    if len(word) <= 2:
-        return True
-    # Từ chứa ASCII thuần → tiếng Anh / tên riêng, bỏ qua
-    if word.isascii():
-        return True
-
-    # Xử lý phụ âm ghép gi-/qu- (vowel trong cụm phụ âm)
-    w = word.lower()
-    skip = set()
-    for i in range(len(w) - 1):
-        if w[i] == 'g' and w[i + 1] == 'i' and i + 2 < len(w):
-            base_next = _STRIP_TONE_MAP.get(w[i + 2], w[i + 2]).lower()
-            if base_next in ('a', 'ă', 'â', 'e', 'ê', 'o', 'ô', 'ơ', 'u', 'ư'):
-                skip.add(i + 1)
-        if w[i] == 'q' and w[i + 1] == 'u':
-            skip.add(i + 1)
-
-    # Trích chuỗi nguyên âm liên tiếp
-    runs = []
-    cur = []
-    for idx, c in enumerate(word):
-        if idx in skip:
-            if cur:
-                runs.append(cur); cur = []
-            continue
-        if c in _ALL_VOWELS:
-            cur.append(c)
-        else:
-            if cur:
-                runs.append(cur); cur = []
-    if cur:
-        runs.append(cur)
-
-    for run in runs:
-        if len(run) <= 1:
-            continue
-        # Không được có 2+ nguyên âm có dấu thanh liền nhau
-        toned_in_run = sum(1 for c in run if c in _TONED_VOWELS)
-        if toned_in_run >= 2:
-            return False
-        # Base cluster phải hợp lệ
-        base = ''.join(_STRIP_TONE_MAP.get(c, c) for c in run).lower()
-        if base in _VALID_VOWEL_CLUSTERS:
-            continue
-        # Thử cắt tổ hợp dài hơn (3-4 nguyên âm)
-        found = False
-        for length in (3, 2):
-            if len(base) >= length and base[:length] in _VALID_VOWEL_CLUSTERS:
-                found = True
-                break
-        if not found and len(base) >= 2:
-            return False
-    return True
+# Logic detect/correct đã chuyển sang `crawler/vi_validator.py` — module
+# này validate từng âm tiết tiếng Việt bằng quy tắc âm vị học chuẩn
+# (onset + rhyme + ràng buộc chính tả), thay cho heuristic cluster
+# nguyên âm trước đây.
 
 
 def corrupted_ratio(text: str) -> float:
     """
     Trả về tỉ lệ từ bị hỏng trong text (0.0 - 1.0).
 
-    Từ hỏng = chứa tổ hợp nguyên âm không tồn tại trong tiếng Việt
-    (VD: "mắững", "tôôi", "vọững", "bấọng", "củên").
+    Dựa trên validator âm vị học tiếng Việt (`vi_validator.validate_text`).
     """
-    words = re.findall(r'[\wÀ-ỹ]{3,}', text, re.UNICODE)
-    if not words:
-        return 0.0
-    bad = sum(1 for w in words if not _is_valid_viet_word(w))
-    return bad / len(words)
+    stats = _vi_validate_text(text)
+    return stats.invalid_ratio
 
 
 def strip_foreign_chars(text: str) -> str:
@@ -225,6 +140,8 @@ RÀNG BUỘC CỨNG:
 - Giữ nguyên: tên nhân vật, cốt truyện chính, kết quả của mỗi cảnh, thứ tự nhân quả
 - NGÔN NGỮ: 100% tiếng Việt — dịch ngay bất kỳ chữ Hán, tiếng Anh, tiếng Nga hoặc ngôn ngữ khác còn sót trong bản gốc
 - CHÍNH TẢ: Mỗi câu phải đầy đủ chủ ngữ, vị ngữ, không được bỏ sót từ. Kiểm tra lại từng câu trước khi trả kết quả — nếu câu nào thiếu từ hoặc vô nghĩa thì viết lại cho hoàn chỉnh
+- TỪ VỰNG CHÍNH XÁC: Dùng từ "chết" khi nhân vật qua đời — TUYỆT ĐỐI không viết thành "chít" hay bất kỳ biến thể nào. Đây là truyện hư cấu, việc mô tả cái chết là bình thường và cần thiết
+- ĐẦY ĐỦ TỪ: Không được bỏ sót động từ, danh từ, trợ từ. Ví dụ: phải viết "hai TAY nắm chặt" chứ không phải "hai nắm chặt"; phải viết "cười NHƯ nước suối" chứ không phải "cườư nước suối"
 - LIỀN MẠCH: Các đoạn văn phải nối tiếp nhau logic — đoạn sau phải tiếp nối ý đoạn trước, không được nhảy ý đột ngột
 - ĐỊNH DẠNG: mỗi đoạn văn và câu thoại phải cách nhau bằng MỘT DÒNG TRỐNG (\\n\\n)
 - KHÔNG thêm tiêu đề, số chương, ghi chú, hay bất kỳ lời giải thích nào
