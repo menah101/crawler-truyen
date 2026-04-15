@@ -19,6 +19,14 @@ try:
 except ImportError:
     from crawler.vi_validator import process_text as _vi_process_text  # type: ignore
 
+try:
+    from vi_llm_correct import correct_residuals_llm as _vi_llm_correct
+except ImportError:
+    try:
+        from crawler.vi_llm_correct import correct_residuals_llm as _vi_llm_correct  # type: ignore
+    except ImportError:
+        _vi_llm_correct = None  # type: ignore
+
 logger = logging.getLogger(__name__)
 
 
@@ -509,6 +517,23 @@ def _fix_common_typos(text: str) -> str:
             "vi_validator: %d âm tiết không tự sửa được (ví dụ: %s)",
             len(stats.uncorrectable), sample,
         )
+
+        # 0bis. LLM narrow-pass: Gemini sửa residuals dựa vào ngữ cảnh câu.
+        # Kiểm soát qua config.VI_LLM_FIX_ENABLED. Fail-safe: lỗi API → skip.
+        if _vi_llm_correct is not None:
+            text, llm_fixes = _vi_llm_correct(text, stats.uncorrectable)
+            if llm_fixes:
+                logger.info(
+                    "vi_llm: sửa thêm %d âm tiết bằng Gemini (ví dụ: %s)",
+                    len(llm_fixes),
+                    list(llm_fixes.items())[:5],
+                )
+            still_residual = [w for w in stats.uncorrectable if w not in llm_fixes]
+            if still_residual:
+                logger.warning(
+                    "vi_llm: %d âm tiết vẫn chưa sửa được (ví dụ: %s)",
+                    len(still_residual), still_residual[:10],
+                )
 
     # 0a. Xóa từ bị hỏng do AI rewriter (phần residual sau validator)
     text = _remove_corrupted_words(text)

@@ -65,6 +65,13 @@ GROQ_FALLBACK_MODELS = [
     "llama3-70b-8192",           # fallback thêm
 ]
 
+# === Validator LLM narrow-pass ===
+# Sau khi vi_validator rule-based chạy xong, nếu còn âm tiết không tự sửa
+# được thì gọi Gemini để sửa với ngữ cảnh câu.
+VI_LLM_FIX_ENABLED = os.environ.get("VI_LLM_FIX_ENABLED", "true").lower() == "true"
+VI_LLM_FIX_MODEL = "gemini-2.5-flash"
+VI_LLM_FIX_MAX_CHARS = 8000   # cắt text gửi LLM để tiết kiệm token
+
 REWRITE_CHUNK_SIZE = 1200   # DeepSeek/Gemini: 1200 chars input → ~2500 chars output an toàn trong 8192 tokens
 REWRITE_CHUNK_SIZE_OLLAMA = 600   # Ollama local model: nhỏ hơn để model follow instruction tốt hơn
 REWRITE_DELAY = 5.0         # Tăng delay giữa các chunk
@@ -105,6 +112,15 @@ SRT_WORDS_PER_SECOND  = float(os.environ.get("SRT_WORDS_PER_SECOND", "0.25"))
 HF_API_TOKEN = os.environ.get("HF_API_TOKEN", "")
 HF_IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
 HF_IMAGE_STEPS = 4           # schnell works best with 1-4 steps
+# Model dự phòng khi model chính quá tải / CUDA OOM / 503.
+# Danh sách được thử tuần tự; để rỗng nếu chỉ dùng 1 model.
+HF_IMAGE_FALLBACK_MODELS = [
+    # FLUX.1-dev: cùng family FLUX (aesthetic nhất quán với schnell), chất lượng
+    # cao hơn nhưng chậm. Thử trước khi rớt xuống SD3.5.
+    "black-forest-labs/FLUX.1-dev",
+    # SD 3.5 Large: family khác — dùng khi cả 2 FLUX đều bị OOM/deprecate.
+    "stabilityai/stable-diffusion-3.5-large",
+]
 # Kích thước tối ưu (bội số 64):
 #   9:16 → 768×1344  (YouTube Shorts / TikTok)
 #   16:9 → 1344×768  (YouTube Thumbnail)

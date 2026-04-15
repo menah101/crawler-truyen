@@ -137,6 +137,16 @@ def _onset_rhyme_compat(onset: str, rhyme: str) -> bool:
     return True
 
 
+def _count_tone_marks(word: str) -> int:
+    """Đếm số ký tự mang dấu thanh (tone_idx > 0) trong word."""
+    n = 0
+    for ch in word:
+        entry = _TONED_TO_BASE.get(ch)
+        if entry and entry[1] > 0:
+            n += 1
+    return n
+
+
 @lru_cache(maxsize=65536)
 def is_valid_syllable(word: str) -> bool:
     """
@@ -147,6 +157,11 @@ def is_valid_syllable(word: str) -> bool:
         return False
     if not word.isalpha():
         return True  # từ hỗn hợp (số, gạch nối) — không check
+    # Ràng buộc chính tả: mỗi âm tiết chỉ có tối đa 1 dấu thanh.
+    # Loại các case 2+ dấu như 'cáủ', 'thẳý', 'dẫạy' mà phonotactic đơn thuần
+    # không bắt được sau khi strip tones.
+    if _count_tone_marks(word) > 1:
+        return False
     word_lower = word.lower()
     base, _tone = _strip_tones(word_lower)
     if not base:
@@ -173,6 +188,45 @@ def is_valid_syllable(word: str) -> bool:
         return True
 
     return False
+
+
+# ─── Dictionary (corpus-derived real syllables) ─────────────
+# Lazy-load từ `data/vi_syllables.txt` (build từ tools/build_syllable_dict.py).
+# Khi file không tồn tại, dict rỗng → `is_real_syllable` fallback sang phonotactic.
+
+_DICT_PATH = __file__.rsplit("/", 1)[0] + "/data/vi_syllables.txt"
+_REAL_SYLLABLES: frozenset[str] | None = None
+
+
+def _load_dict() -> frozenset[str]:
+    import os
+    global _REAL_SYLLABLES
+    if _REAL_SYLLABLES is not None:
+        return _REAL_SYLLABLES
+    if not os.path.exists(_DICT_PATH):
+        _REAL_SYLLABLES = frozenset()
+        return _REAL_SYLLABLES
+    try:
+        with open(_DICT_PATH, encoding="utf-8") as f:
+            _REAL_SYLLABLES = frozenset(
+                line.strip().lower() for line in f if line.strip()
+            )
+    except Exception:
+        _REAL_SYLLABLES = frozenset()
+    return _REAL_SYLLABLES
+
+
+def is_real_syllable(word: str) -> bool:
+    """
+    Strict check: âm tiết THỰC SỰ xuất hiện trong corpus + phonotactic hợp lệ.
+    Fallback về phonotactic nếu chưa có dictionary file.
+    """
+    if not is_valid_syllable(word):
+        return False
+    d = _load_dict()
+    if not d:
+        return True  # chưa có dict → relax về phonotactic
+    return word.lower() in d
 
 
 # ─── Phát hiện corruption ─────────────────────────────────────
@@ -267,6 +321,64 @@ def _collapse_same_base(word: str) -> str:
     return "".join(out)
 
 
+def _adjacent_diff_base_delete_candidates(word: str) -> list[str]:
+    """
+    Với mỗi cặp nguyên âm LIỀN KỀ có BASE KHÁC NHAU và ít nhất 1 có dấu
+    → sinh 2 ứng viên (xóa ký tự trái / xóa ký tự phải).
+
+    Cặp kiểu này luôn là corruption vì một âm tiết tiếng Việt chuẩn chỉ
+    mang TỐI ĐA 1 dấu thanh; 2 dấu liền nhau khác base → OCR/AI chèn thừa.
+    """
+    cands: list[str] = []
+    for i in range(len(word) - 1):
+        a, b = word[i], word[i + 1]
+        a_entry = _TONED_TO_BASE.get(a)
+        b_entry = _TONED_TO_BASE.get(b)
+        if not a_entry or not b_entry:
+            continue
+        a_base, a_tone = a_entry
+        b_base, b_tone = b_entry
+        if a_base not in _TONE_TABLE or b_base not in _TONE_TABLE:
+            continue
+        if a_base == b_base:
+            continue  # cùng base đã có _collapse_same_base xử lý
+        # Cho phép cả cặp toneless-khác-base (VD 'ô+â' trong 'trôâu') — nếu
+        # đó là diphthong hợp lệ (oa, ua...) thì âm tiết gốc đã valid rồi
+        # và không vào nhánh correct_syllable này.
+        cands.append(word[:i] + word[i + 1 :])
+        cands.append(word[: i + 1] + word[i + 2 :])
+    return cands
+
+
+def _unambiguous_delete(word: str) -> str | None:
+    """
+    Thử xóa 1 ký tự trong cặp nguyên âm base-khác-nhau liền kề.
+    2 vòng check:
+      a) Ứng viên có trong dictionary (âm tiết thực tế từ corpus) — ưu tiên.
+      b) Fallback: phonotactic valid.
+    Chỉ trả kết quả khi CHÍNH XÁC 1 ứng viên thỏa.
+    """
+    cands = _adjacent_diff_base_delete_candidates(word)
+    if not cands:
+        return None
+
+    # Vòng a: dictionary-strict — loại fake-valid như 'cáủ', 'lỏa' nếu
+    # không xuất hiện trong corpus.
+    d = _load_dict()
+    if d:
+        real = {c for c in cands if c.lower() in d}
+        if len(real) == 1:
+            return next(iter(real))
+        if len(real) > 1:
+            return None  # có nhiều ứng viên thực → thực sự ambiguous, không đoán
+
+    # Vòng b: phonotactic fallback khi dict không quyết được
+    valid = {c for c in cands if is_valid_syllable(c)}
+    if len(valid) == 1:
+        return next(iter(valid))
+    return None
+
+
 def _safe_candidates(word: str) -> list[str]:
     """
     Ứng viên sửa SAFE: chỉ dùng collapse rules (gộp ký tự lặp/cùng base).
@@ -314,6 +426,14 @@ def correct_syllable(word: str) -> str | None:
             if was_upper and cand:
                 return cand[0].upper() + cand[1:]
             return cand
+
+    # Step 2: xóa 1 ký tự trong cặp nguyên âm có-dấu-khác-base,
+    # chỉ chấp nhận khi chỉ có 1 ứng viên duy nhất hợp lệ.
+    cand = _unambiguous_delete(lower)
+    if cand:
+        if was_upper and cand:
+            return cand[0].upper() + cand[1:]
+        return cand
     return None
 
 
@@ -411,7 +531,19 @@ if __name__ == "__main__":
     invalid_tests = [
         "ngưười", "nhữững", "đượều", "khôông", "nhưưng", "đưươc",
         "ngưươi", "ươương", "ưương", "đượợc", "chuuyện", "truuyện",
-        "nưóc",  # OCR: 'nuoc' với dấu sai chỗ
+        # Adjacent toned vowels, different bases — unambiguous cases
+        "Đêắng", "âài", "lấôi", "khiếừng", "trôâu",
+        # Dictionary-resolved (ứng viên fake không có trong corpus):
+        "lỏửa",   # lửa (thật) vs lỏa (fake)
+        "nhưột",  # nhột vs nhưt (fake)
+        "cáủa",   # của vs cáủ (2 dấu — one-tone rule loại)
+    ]
+
+    # Thực sự ambiguous: cả 2 ứng viên đều có trong dict / đều hợp lý
+    ambiguous_tests = [
+        "mộọng",  # mọng / mộng — cả 2 đều thật
+        "còơn",   # còn / cơn — cả 2 đều thật
+        "tôài",   # tài / tôi — cả 2 đều thật
     ]
     print("\n=== Invalid syllables (should be fixable) ===")
     passed = 0
@@ -423,6 +555,13 @@ if __name__ == "__main__":
         if not v and fixed:
             passed += 1
     print(f"\n{passed}/{len(invalid_tests)} corrupted syllables auto-corrected")
+
+    print("\n=== Ambiguous cases (must stay uncorrected) ===")
+    for w in ambiguous_tests:
+        fixed = correct_syllable(w)
+        mark = "✓" if fixed is None else "✗"
+        print(f"  {mark} {w!r} → {fixed!r} (expected: None)")
+        assert fixed is None, f"Expected ambiguous {w!r} to NOT be corrected, got {fixed!r}"
 
     # Proper nouns / English words — không nên bị đụng vào
     foreign_tests = ["Claude", "John", "Python", "API", "GPT", "Linux"]

@@ -1,9 +1,18 @@
+import logging
+import time
 import requests
 import io
 from PIL import Image
 
-# HuggingFace Image API — FLUX.1-schnell
-API_URL = "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell"
+logger = logging.getLogger(__name__)
+
+# HuggingFace Image API — FLUX.1-schnell (có thể override qua config.HF_IMAGE_MODEL)
+_DEFAULT_MODEL = "black-forest-labs/FLUX.1-schnell"
+API_URL = f"https://router.huggingface.co/hf-inference/models/{_DEFAULT_MODEL}"
+
+# Retry khi HF Inference tạm thời không đáp ứng (CUDA OOM, rate limit, overload)
+_RETRY_DELAYS = [10, 30, 60]
+_RETRY_STATUS = {429, 500, 502, 503, 504}
 
 # ── Kích thước chuẩn (bội số 64, tối ưu cho FLUX) ────────────────
 SIZES = {
@@ -868,24 +877,64 @@ def generate_image(
     if seed is not None:
         params["seed"] = seed
 
+    # Lấy model chính + fallback từ config (rơi về defaults nếu thiếu)
     try:
-        response = requests.post(
-            API_URL,
-            headers=headers,
-            json={"inputs": prompt, "parameters": params},
-            timeout=120,
-        )
+        from config import HF_IMAGE_MODEL, HF_IMAGE_FALLBACK_MODELS
+    except ImportError:
+        HF_IMAGE_MODEL = _DEFAULT_MODEL
+        HF_IMAGE_FALLBACK_MODELS = []
+    models = [HF_IMAGE_MODEL] + [m for m in HF_IMAGE_FALLBACK_MODELS if m != HF_IMAGE_MODEL]
 
-        if response.status_code != 200:
-            raise Exception(f"HTTP {response.status_code}: {response.text[:200]}")
+    last_error = "unknown"
+    for idx, model in enumerate(models):
+        api_url = f"https://router.huggingface.co/hf-inference/models/{model}"
+        attempts = len(_RETRY_DELAYS) + 1
+        for attempt in range(attempts):
+            try:
+                response = requests.post(
+                    api_url,
+                    headers=headers,
+                    json={"inputs": prompt, "parameters": params},
+                    timeout=120,
+                )
+            except Exception as e:
+                last_error = f"{model} network: {e}"
+                logger.warning(f"  ⚠️ Image {last_error}")
+                if attempt < attempts - 1:
+                    time.sleep(_RETRY_DELAYS[attempt])
+                    continue
+                break
 
-        image = Image.open(io.BytesIO(response.content))
-        return image
+            if response.status_code == 200:
+                try:
+                    return Image.open(io.BytesIO(response.content))
+                except Exception as e:
+                    last_error = f"{model} parse: {e}"
+                    break
 
-    except Exception as e:
-        print(f"Image generation error: {e}")
-        img = Image.new("RGB", (width, height), color=(13, 13, 26))  # #0D0D1A brand color
-        return img
+            body = response.text[:200]
+            is_oom = response.status_code == 400 and "out of memory" in body.lower()
+            transient = response.status_code in _RETRY_STATUS or is_oom
+
+            if transient and attempt < attempts - 1:
+                reason = "CUDA OOM" if is_oom else f"HTTP {response.status_code}"
+                logger.warning(
+                    f"  ⚠️ Image {model} {reason} — retry sau {_RETRY_DELAYS[attempt]}s "
+                    f"({attempt + 1}/{attempts - 1})"
+                )
+                time.sleep(_RETRY_DELAYS[attempt])
+                continue
+
+            last_error = f"{model} HTTP {response.status_code}: {body}"
+            logger.error(f"  ❌ Image {last_error}")
+            break
+
+        if idx < len(models) - 1:
+            logger.warning(f"  → Image: chuyển sang model dự phòng")
+
+    # Mọi model đều fail — RAISE để caller biết và xử lý (log ❌, bỏ scene…).
+    # Không trả ảnh placeholder giả vờ thành công như trước.
+    raise RuntimeError(f"Image generation failed after all retries + fallbacks: {last_error}")
 
 
 # ─────────────────────────────────────────────────────────────────

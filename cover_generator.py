@@ -12,12 +12,15 @@ Quy trình:
 import io
 import logging
 import re
+import time
 import requests
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageDraw, ImageFont
 except ImportError:
     Image = None
+    ImageDraw = None
+    ImageFont = None
 
 logger = logging.getLogger(__name__)
 
@@ -308,43 +311,98 @@ def _is_safe(prompt: str) -> bool:
     return not any(w in low for w in _NSFW_KEYWORDS)
 
 
-def _generate_flux_image(prompt: str, api_token: str) -> Image.Image | None:
-    """Gọi FLUX.1-schnell tạo ảnh 9:16 (portrait)."""
-    try:
-        from config import HF_IMAGE_MODEL
-    except ImportError:
-        HF_IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
+_RETRY_DELAYS = [10, 30, 60]   # giây — backoff giữa các lần thử cùng 1 model
+_RETRY_STATUS = {429, 500, 502, 503, 504}
 
-    api_url = f"https://router.huggingface.co/hf-inference/models/{HF_IMAGE_MODEL}"
 
-    # Thêm negative suffix + safety
+def _is_cuda_oom(status_code: int, body: str) -> bool:
+    """GPU trên HF Inference bận → trả 400 với body chứa 'CUDA out of memory'."""
+    if status_code != 400:
+        return False
+    return "cuda out of memory" in body.lower() or "out of memory" in body.lower()
+
+
+def _call_image_model(model: str, prompt: str, api_token: str) -> Image.Image | None:
+    """
+    Gọi 1 image model với retry backoff khi gặp lỗi tạm thời
+    (429/503/CUDA OOM). Trả None nếu fail hẳn sau mọi lần retry
+    hoặc lỗi không retry được (401/403, payload lỗi…).
+    """
+    api_url = f"https://router.huggingface.co/hf-inference/models/{model}"
     full_prompt = f"{prompt}, {_NEGATIVE_SUFFIX}"
+    payload = {
+        "inputs": full_prompt,
+        "parameters": {
+            "width": _COVER_WIDTH,
+            "height": _COVER_HEIGHT,
+            "num_inference_steps": 12,
+            "guidance_scale": 3.5,
+        },
+    }
 
-    try:
-        resp = requests.post(
-            api_url,
-            headers={"Authorization": f"Bearer {api_token}"},
-            json={
-                "inputs": full_prompt,
-                "parameters": {
-                    "width": _COVER_WIDTH,
-                    "height": _COVER_HEIGHT,
-                    "num_inference_steps": 12,    # nhiều steps hơn cho cover quality
-                    "guidance_scale": 3.5,
-                },
-            },
-            timeout=120,
-        )
-
-        if resp.status_code != 200:
-            logger.error(f"  ❌ FLUX error: {resp.status_code} — {resp.text[:200]}")
+    attempts = len(_RETRY_DELAYS) + 1
+    for attempt in range(attempts):
+        try:
+            resp = requests.post(
+                api_url,
+                headers={"Authorization": f"Bearer {api_token}"},
+                json=payload,
+                timeout=120,
+            )
+        except Exception as e:
+            logger.error(f"  ❌ Image {model} network error: {e}")
+            if attempt < attempts - 1:
+                delay = _RETRY_DELAYS[attempt]
+                logger.info(f"     Retry sau {delay}s...")
+                time.sleep(delay)
+                continue
             return None
 
-        return Image.open(io.BytesIO(resp.content))
+        if resp.status_code == 200:
+            try:
+                return Image.open(io.BytesIO(resp.content))
+            except Exception as e:
+                logger.error(f"  ❌ Image {model} parse error: {e}")
+                return None
 
-    except Exception as e:
-        logger.error(f"  ❌ FLUX image generation error: {e}")
+        body = resp.text[:200]
+        transient = resp.status_code in _RETRY_STATUS or _is_cuda_oom(resp.status_code, resp.text)
+
+        if transient and attempt < attempts - 1:
+            delay = _RETRY_DELAYS[attempt]
+            reason = "CUDA OOM" if _is_cuda_oom(resp.status_code, resp.text) else f"HTTP {resp.status_code}"
+            logger.warning(f"  ⚠️ Image {model} {reason} — retry sau {delay}s ({attempt + 1}/{attempts - 1})")
+            time.sleep(delay)
+            continue
+
+        logger.error(f"  ❌ Image {model} error: {resp.status_code} — {body}")
         return None
+
+    return None
+
+
+def _generate_flux_image(prompt: str, api_token: str) -> Image.Image | None:
+    """
+    Tạo ảnh cover 9:16: thử model chính → retry → fallback models.
+    """
+    try:
+        from config import HF_IMAGE_MODEL, HF_IMAGE_FALLBACK_MODELS
+    except ImportError:
+        HF_IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
+        HF_IMAGE_FALLBACK_MODELS = []
+
+    models = [HF_IMAGE_MODEL] + [m for m in HF_IMAGE_FALLBACK_MODELS if m != HF_IMAGE_MODEL]
+
+    for idx, model in enumerate(models):
+        label = "chính" if idx == 0 else f"fallback {idx}"
+        logger.info(f"     Image model [{label}]: {model}")
+        img = _call_image_model(model, prompt, api_token)
+        if img is not None:
+            return img
+        if idx < len(models) - 1:
+            logger.warning(f"     → Chuyển sang image model dự phòng")
+
+    return None
 
 
 def _compress_image(img: Image.Image, max_size_kb: int = 200) -> bytes:
@@ -471,6 +529,122 @@ def _get_fallback_prompt(era: str) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────
+# PLACEHOLDER: ảnh tĩnh local khi mọi image model đều fail
+# ─────────────────────────────────────────────────────────────────
+
+# Palette theo era — (top_color, bottom_color) RGB cho gradient dọc
+_PLACEHOLDER_PALETTE = {
+    "co-trang":  ((60, 15, 25),  (180, 50, 60)),    # đỏ vang cổ
+    "hien-dai":  ((25, 30, 70),  (130, 70, 150)),   # tím xanh hiện đại
+    "thap-nien": ((70, 45, 25),  (200, 150, 80)),   # nâu vàng vintage
+}
+
+# Các font có dấu tiếng Việt hay gặp trên macOS / Linux Pi / Debian
+_FONT_CANDIDATES = [
+    "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/Library/Fonts/Arial Unicode.ttf",
+    "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+    "/System/Library/Fonts/Avenir Next.ttc",
+]
+
+
+def _load_font(size: int):
+    """Tìm font hỗ trợ tiếng Việt. Fallback về default nếu không thấy."""
+    import os
+    for path in _FONT_CANDIDATES:
+        if os.path.exists(path):
+            try:
+                return ImageFont.truetype(path, size)
+            except Exception:
+                continue
+    try:
+        return ImageFont.load_default()
+    except Exception:
+        return None
+
+
+def _wrap_title(title: str, font, draw: "ImageDraw.ImageDraw", max_width: int) -> list[str]:
+    """Chia title thành các dòng vừa chiều rộng."""
+    words = title.split()
+    lines: list[str] = []
+    current: list[str] = []
+    for w in words:
+        candidate = " ".join(current + [w])
+        bbox = draw.textbbox((0, 0), candidate, font=font)
+        if bbox[2] - bbox[0] > max_width and current:
+            lines.append(" ".join(current))
+            current = [w]
+        else:
+            current.append(w)
+    if current:
+        lines.append(" ".join(current))
+    return lines
+
+
+def _generate_placeholder_cover(title: str, era: str) -> "Image.Image | None":
+    """
+    Tạo ảnh bìa tĩnh local khi FLUX + fallback models đều fail.
+    Gradient theo era + title overlay. Không bao giờ fail.
+    """
+    if Image is None or ImageDraw is None:
+        return None
+
+    top_rgb, bottom_rgb = _PLACEHOLDER_PALETTE.get(era, _PLACEHOLDER_PALETTE["co-trang"])
+    img = Image.new("RGB", (_COVER_WIDTH, _COVER_HEIGHT), top_rgb)
+    draw = ImageDraw.Draw(img)
+
+    # Gradient dọc
+    for y in range(_COVER_HEIGHT):
+        ratio = y / (_COVER_HEIGHT - 1)
+        r = int(top_rgb[0] + (bottom_rgb[0] - top_rgb[0]) * ratio)
+        g = int(top_rgb[1] + (bottom_rgb[1] - top_rgb[1]) * ratio)
+        b = int(top_rgb[2] + (bottom_rgb[2] - top_rgb[2]) * ratio)
+        draw.line([(0, y), (_COVER_WIDTH, y)], fill=(r, g, b))
+
+    # Overlay title giữa ảnh
+    font = _load_font(72)
+    if font is not None:
+        max_text_width = _COVER_WIDTH - 120
+        lines = _wrap_title(title, font, draw, max_text_width)
+        line_heights = []
+        for ln in lines:
+            bbox = draw.textbbox((0, 0), ln, font=font)
+            line_heights.append(bbox[3] - bbox[1])
+        gap = 18
+        total_h = sum(line_heights) + gap * (len(lines) - 1)
+        y0 = (_COVER_HEIGHT - total_h) // 2
+        for ln, lh in zip(lines, line_heights):
+            bbox = draw.textbbox((0, 0), ln, font=font)
+            lw = bbox[2] - bbox[0]
+            x0 = (_COVER_WIDTH - lw) // 2
+            # shadow mờ cho dễ đọc
+            draw.text((x0 + 3, y0 + 3), ln, font=font, fill=(0, 0, 0))
+            draw.text((x0, y0), ln, font=font, fill=(255, 240, 220))
+            y0 += lh + gap
+
+    # Đường viền mảnh + nhãn "Hồng Trần Truyện"
+    draw.rectangle(
+        [(30, 30), (_COVER_WIDTH - 30, _COVER_HEIGHT - 30)],
+        outline=(255, 240, 220),
+        width=2,
+    )
+    small_font = _load_font(28)
+    if small_font is not None:
+        label = "Hồng Trần Truyện"
+        bbox = draw.textbbox((0, 0), label, font=small_font)
+        lw = bbox[2] - bbox[0]
+        draw.text(
+            ((_COVER_WIDTH - lw) // 2, _COVER_HEIGHT - 80),
+            label,
+            font=small_font,
+            fill=(255, 240, 220),
+        )
+
+    return img
+
+
+# ─────────────────────────────────────────────────────────────────
 # PUBLIC API
 # ─────────────────────────────────────────────────────────────────
 
@@ -547,12 +721,15 @@ def generate_cover(
         logger.warning("     Prompt không an toàn — dùng fallback")
         selected_prompt = _get_fallback_prompt(era)
 
-    # 3. Tạo ảnh bằng FLUX
-    logger.info("     Đang gọi FLUX.1-schnell tạo ảnh 9:16 (portrait)...")
+    # 3. Tạo ảnh bằng FLUX (có retry + model fallback)
+    logger.info("     Đang gọi image model tạo ảnh 9:16 (portrait)...")
     img = _generate_flux_image(selected_prompt, HF_API_TOKEN)
     if img is None:
-        logger.error("  ❌ Không tạo được ảnh cover")
-        return None
+        logger.warning("  ⚠️ Mọi image model fail — dùng placeholder tĩnh")
+        img = _generate_placeholder_cover(title, era)
+        if img is None:
+            logger.error("  ❌ Không tạo được ảnh cover (kể cả placeholder)")
+            return None
 
     # 4. Nén < 200KB
     img_bytes = _compress_image(img, max_size_kb=200)
