@@ -19,9 +19,14 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from typing import Tuple
 
 import requests
+
+# Gemini overload / rate-limit là tạm thời → retry với backoff trước khi bỏ.
+_RETRY_STATUS = {429, 500, 502, 503, 504}
+_RETRY_DELAYS = [10, 30, 60]   # giây
 
 try:
     from vi_validator import is_valid_syllable
@@ -116,26 +121,52 @@ def correct_residuals_llm(
         context_text=context_text or "(không lấy được context)",
     )
 
-    try:
-        resp = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/{VI_LLM_FIX_MODEL}:generateContent?key={GEMINI_API_KEY}",
-            headers={"Content-Type": "application/json"},
-            json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {
-                    "temperature": 0.1,
-                    "maxOutputTokens": 2048,
-                    "responseMimeType": "application/json",
-                },
-            },
-            timeout=60,
-        )
-    except Exception as e:
-        logger.warning("vi_llm: network error: %s", e)
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{VI_LLM_FIX_MODEL}:generateContent?key={GEMINI_API_KEY}"
+    )
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.1,
+            "maxOutputTokens": 2048,
+            "responseMimeType": "application/json",
+        },
+    }
+
+    resp = None
+    attempts = len(_RETRY_DELAYS) + 1
+    for attempt in range(attempts):
+        try:
+            resp = requests.post(
+                url,
+                headers={"Content-Type": "application/json"},
+                json=payload,
+                timeout=60,
+            )
+        except Exception as e:
+            logger.warning("vi_llm: network error: %s", e)
+            if attempt < attempts - 1:
+                time.sleep(_RETRY_DELAYS[attempt])
+                continue
+            return text, {}
+
+        if resp.status_code == 200:
+            break
+
+        if resp.status_code in _RETRY_STATUS and attempt < attempts - 1:
+            delay = _RETRY_DELAYS[attempt]
+            logger.warning(
+                "vi_llm: Gemini HTTP %d — retry sau %ds (%d/%d)",
+                resp.status_code, delay, attempt + 1, attempts - 1,
+            )
+            time.sleep(delay)
+            continue
+
+        logger.warning("vi_llm: Gemini HTTP %d — %s", resp.status_code, resp.text[:200])
         return text, {}
 
-    if resp.status_code != 200:
-        logger.warning("vi_llm: Gemini HTTP %d — %s", resp.status_code, resp.text[:200])
+    if resp is None or resp.status_code != 200:
         return text, {}
 
     try:
