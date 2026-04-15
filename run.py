@@ -736,7 +736,9 @@ def crawl_novel_api(url, source_name=DEFAULT_SOURCE, max_chapters=0, chapter_fil
             try:
                 content = rewrite_chapter(content, novel_title=title)
             except Exception as e:
-                logger.warning(f"    ⚠️ Rewrite error: {e}")
+                logger.warning(f"    ⚠️ Rewrite error: {e} — fallback split_paragraphs raw")
+                from rewriter import split_paragraphs
+                content = split_paragraphs(content)
 
         chapters.append({'number': ch_num, 'title': f'Chương {ch_num}', 'content': content})
         logger.info(f"    ✅ Ch.{ch_num} ({len(content)} ký tự)")
@@ -898,7 +900,9 @@ def crawl_novel(url, source_name=DEFAULT_SOURCE, max_chapters=0, conn=None, chap
             try:
                 content = rewrite_chapter(content, novel_title=title)
             except Exception as e:
-                logger.warning(f"    ⚠️ Rewrite error: {e}")
+                logger.warning(f"    ⚠️ Rewrite error: {e} — fallback split_paragraphs raw")
+                from rewriter import split_paragraphs
+                content = split_paragraphs(content)
 
         insert_chapter(conn, novel_id, ch_num, f"Chương {ch_num}", content,
                        chapter_index=i, total_chapters=len(chapter_urls))

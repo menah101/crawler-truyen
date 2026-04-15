@@ -960,24 +960,38 @@ def rewrite_chapter(content, novel_title=""):  # noqa: ARG001
     CORRUPT_THRESHOLD = 0.02
 
     def _call_provider(chunk_text: str, temperature: float):
-        """Gọi provider hiện tại với nhiệt độ chỉ định. Trả về text hoặc None."""
+        """Gọi provider hiện tại. Nếu fail (Gemini SAFETY block, quota...),
+        tự fallback Anthropic khi có ANTHROPIC_API_KEY. Trả text hoặc None.
+        """
+        result = None
         try:
             if provider == "anthropic":
-                return rewrite_anthropic(chunk_text, ANTHROPIC_API_KEY, ANTHROPIC_MODEL, temperature=temperature)
+                result = rewrite_anthropic(chunk_text, ANTHROPIC_API_KEY, ANTHROPIC_MODEL, temperature=temperature)
             elif provider == "gemini":
-                return rewrite_gemini(chunk_text, GEMINI_API_KEY, GEMINI_MODEL, temperature=temperature)
+                result = rewrite_gemini(chunk_text, GEMINI_API_KEY, GEMINI_MODEL, temperature=temperature)
             elif provider == "deepseek":
-                return rewrite_deepseek(chunk_text, DEEPSEEK_API_KEY, DEEPSEEK_MODEL, temperature=temperature)
+                result = rewrite_deepseek(chunk_text, DEEPSEEK_API_KEY, DEEPSEEK_MODEL, temperature=temperature)
             elif provider == "groq":
-                return rewrite_groq(chunk_text, GROQ_API_KEY, GROQ_MODEL, temperature=temperature)
+                result = rewrite_groq(chunk_text, GROQ_API_KEY, GROQ_MODEL, temperature=temperature)
             elif provider == "huggingface":
-                return rewrite_huggingface(chunk_text, HF_API_TOKEN, HF_REWRITE_MODEL, temperature=temperature)
+                result = rewrite_huggingface(chunk_text, HF_API_TOKEN, HF_REWRITE_MODEL, temperature=temperature)
             elif provider == "ollama":
-                return rewrite_ollama(chunk_text, OLLAMA_BASE_URL, OLLAMA_MODEL, temperature=temperature)
+                result = rewrite_ollama(chunk_text, OLLAMA_BASE_URL, OLLAMA_MODEL, temperature=temperature)
         except Exception as e:
             logger.error(f"    ❌ Rewrite error: {e}")
-            return None
-        return None
+            result = None
+
+        # Anthropic fallback khi provider chính fail (thường do Gemini SAFETY
+        # block nội dung bạo lực). Claude ít strict với fiction hơn.
+        if not result and provider != "anthropic" and ANTHROPIC_API_KEY:
+            logger.warning(f"    🆘 {provider} fail — fallback Anthropic {ANTHROPIC_MODEL}")
+            try:
+                result = rewrite_anthropic(chunk_text, ANTHROPIC_API_KEY, ANTHROPIC_MODEL, temperature=temperature)
+            except Exception as e:
+                logger.error(f"    ❌ Anthropic fallback error: {e}")
+                result = None
+
+        return result
 
     def _is_truncated(text: str) -> bool:
         """Phát hiện output bị cắt giữa chừng: không kết thúc bằng dấu câu."""
@@ -1001,7 +1015,11 @@ def rewrite_chapter(content, novel_title=""):  # noqa: ARG001
 
         # Tầng 2: nếu output hỏng nhiều hoặc bị cắt → retry với temperature thấp hơn
         if result and len(result) > len(chunk) * 0.3:
-            ratio = corrupted_ratio(result)
+            try:
+                ratio = corrupted_ratio(result)
+            except Exception as e:
+                logger.warning(f"    ⚠️ corrupted_ratio lỗi: {e} — coi như hỏng")
+                ratio = 1.0
             truncated = _is_truncated(result)
 
             if ratio > CORRUPT_THRESHOLD or truncated:
@@ -1015,7 +1033,10 @@ def rewrite_chapter(content, novel_title=""):  # noqa: ARG001
                 )
                 retry = _call_provider(chunk, temperature=0.4)
                 if retry and len(retry) > len(chunk) * 0.3:
-                    retry_ratio = corrupted_ratio(retry)
+                    try:
+                        retry_ratio = corrupted_ratio(retry)
+                    except Exception:
+                        retry_ratio = 1.0
                     retry_truncated = _is_truncated(retry)
                     # Retry tốt hơn = ít hỏng hơn VÀ không bị cắt (hoặc cả gốc đều cắt)
                     if (retry_ratio <= ratio and not retry_truncated) or \

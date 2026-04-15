@@ -87,43 +87,22 @@ def _extract_contexts(text: str, residuals: list[str], window: int = 150) -> str
     return "\n…\n".join(snippets)
 
 
-def correct_residuals_llm(
-    text: str,
-    residuals: list[str],
-) -> Tuple[str, dict[str, str]]:
-    """
-    Gọi Gemini sửa residuals. Trả (corrected_text, {wrong: fixed}).
-    Fail-safe: lỗi API/parse → trả (text, {}) — không làm hỏng pipeline.
-    """
-    if not residuals:
-        return text, {}
-
+def _parse_fixes_json(raw: str) -> dict | None:
+    """Parse JSON object `{wrong: fixed}` từ raw LLM response (strip markdown)."""
+    cleaned = re.sub(r"^```(?:json)?\s*|```\s*$", "", raw.strip(), flags=re.MULTILINE).strip()
     try:
-        from config import (
-            GEMINI_API_KEY,
-            VI_LLM_FIX_ENABLED,
-            VI_LLM_FIX_MODEL,
-            VI_LLM_FIX_MAX_CHARS,
-        )
-    except ImportError:
-        return text, {}
+        data = json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        logger.warning("vi_llm: invalid JSON: %s — raw=%s", e, cleaned[:200])
+        return None
+    return data if isinstance(data, dict) else None
 
-    if not VI_LLM_FIX_ENABLED or not GEMINI_API_KEY:
-        return text, {}
 
-    uniq = sorted(set(residuals))
-    context_text = _extract_contexts(text, uniq)
-    if len(context_text) > VI_LLM_FIX_MAX_CHARS:
-        context_text = context_text[:VI_LLM_FIX_MAX_CHARS]
-
-    prompt = _PROMPT_TEMPLATE.format(
-        residuals_block="\n".join(f"- {r}" for r in uniq),
-        context_text=context_text or "(không lấy được context)",
-    )
-
+def _call_gemini_fixes(prompt: str, api_key: str, model: str) -> dict | None:
+    """Gọi Gemini. Trả dict fixes hoặc None khi fail/block."""
     url = (
         f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{VI_LLM_FIX_MODEL}:generateContent?key={GEMINI_API_KEY}"
+        f"{model}:generateContent?key={api_key}"
     )
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -145,11 +124,11 @@ def correct_residuals_llm(
                 timeout=60,
             )
         except Exception as e:
-            logger.warning("vi_llm: network error: %s", e)
+            logger.warning("vi_llm: Gemini network error: %s", e)
             if attempt < attempts - 1:
                 time.sleep(_RETRY_DELAYS[attempt])
                 continue
-            return text, {}
+            return None
 
         if resp.status_code == 200:
             break
@@ -164,32 +143,62 @@ def correct_residuals_llm(
             continue
 
         logger.warning("vi_llm: Gemini HTTP %d — %s", resp.status_code, resp.text[:200])
-        return text, {}
+        return None
 
     if resp is None or resp.status_code != 200:
-        return text, {}
+        return None
 
     try:
         raw = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
     except (KeyError, IndexError, TypeError) as e:
-        logger.warning("vi_llm: parse response: %s", e)
-        return text, {}
+        logger.warning("vi_llm: Gemini parse response: %s (có thể bị SAFETY block)", e)
+        return None
 
-    cleaned = re.sub(r"^```(?:json)?\s*|```\s*$", "", raw.strip(), flags=re.MULTILINE).strip()
+    return _parse_fixes_json(raw)
+
+
+def _call_anthropic_fixes(prompt: str, api_key: str, model: str) -> dict | None:
+    """Gọi Claude Haiku. Trả dict fixes hoặc None khi fail."""
     try:
-        fixes_raw = json.loads(cleaned)
-    except json.JSONDecodeError as e:
-        logger.warning("vi_llm: invalid JSON: %s — raw=%s", e, cleaned[:200])
-        return text, {}
+        resp = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json={
+                "model": model,
+                "max_tokens": 2048,
+                "temperature": 0.1,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+            timeout=60,
+        )
+    except Exception as e:
+        logger.warning("vi_llm: Anthropic network error: %s", e)
+        return None
 
-    if not isinstance(fixes_raw, dict):
-        return text, {}
+    if resp.status_code != 200:
+        logger.warning("vi_llm: Anthropic HTTP %d — %s", resp.status_code, resp.text[:200])
+        return None
 
-    # Validate + apply fixes
+    try:
+        raw = resp.json()["content"][0]["text"]
+    except (KeyError, IndexError, TypeError) as e:
+        logger.warning("vi_llm: Anthropic parse response: %s", e)
+        return None
+
+    return _parse_fixes_json(raw)
+
+
+def _apply_fixes(
+    text: str, fixes: dict, uniq_set: set[str]
+) -> Tuple[str, dict[str, str]]:
+    """Validate + apply fixes vào text. Bỏ fix không hợp lệ hoặc không match uniq_set."""
     applied: dict[str, str] = {}
     corrected = text
-    uniq_set = set(uniq)
-    for bad, good in fixes_raw.items():
+    for bad, good in fixes.items():
         if not isinstance(good, str) or not good:
             continue
         if bad not in uniq_set:
@@ -199,9 +208,6 @@ def correct_residuals_llm(
         if not is_valid_syllable(good):
             logger.debug("vi_llm: bỏ fix %r → %r (không hợp lệ)", bad, good)
             continue
-        # Replace mọi occurrence của bad trong text bằng good.
-        # Dùng regex với boundary \b nhưng tiếng Việt có ký tự unicode — dùng
-        # lookaround với chữ cái rộng hơn.
         pattern = re.compile(
             r"(?<![A-Za-zÀ-ỹĐđ])" + re.escape(bad) + r"(?![A-Za-zÀ-ỹĐđ])",
             re.UNICODE,
@@ -210,5 +216,66 @@ def correct_residuals_llm(
         if n > 0:
             corrected = new_text
             applied[bad] = good
-
     return corrected, applied
+
+
+def correct_residuals_llm(
+    text: str,
+    residuals: list[str],
+) -> Tuple[str, dict[str, str]]:
+    """
+    Sửa residuals qua LLM. Primary = Gemini (free), fallback = Anthropic Haiku
+    khi Gemini fail (503, SAFETY block, JSON parse fail…).
+    Trả (corrected_text, {wrong: fixed}).
+    Fail-safe: mọi lỗi → trả (text, {}) — không làm hỏng pipeline.
+    """
+    if not residuals:
+        return text, {}
+
+    try:
+        from config import (
+            GEMINI_API_KEY,
+            VI_LLM_FIX_ENABLED,
+            VI_LLM_FIX_MODEL,
+            VI_LLM_FIX_MAX_CHARS,
+        )
+    except ImportError:
+        return text, {}
+
+    if not VI_LLM_FIX_ENABLED:
+        return text, {}
+
+    # Anthropic fallback là optional — không có key thì chỉ dùng Gemini.
+    try:
+        from config import ANTHROPIC_API_KEY, ANTHROPIC_MODEL
+    except ImportError:
+        ANTHROPIC_API_KEY, ANTHROPIC_MODEL = "", ""
+
+    if not GEMINI_API_KEY and not ANTHROPIC_API_KEY:
+        return text, {}
+
+    uniq = sorted(set(residuals))
+    context_text = _extract_contexts(text, uniq)
+    if len(context_text) > VI_LLM_FIX_MAX_CHARS:
+        context_text = context_text[:VI_LLM_FIX_MAX_CHARS]
+
+    prompt = _PROMPT_TEMPLATE.format(
+        residuals_block="\n".join(f"- {r}" for r in uniq),
+        context_text=context_text or "(không lấy được context)",
+    )
+
+    uniq_set = set(uniq)
+    fixes: dict | None = None
+
+    if GEMINI_API_KEY:
+        fixes = _call_gemini_fixes(prompt, GEMINI_API_KEY, VI_LLM_FIX_MODEL)
+
+    # Fallback Anthropic khi Gemini fail hoặc trả dict rỗng.
+    if (not fixes) and ANTHROPIC_API_KEY:
+        logger.info("vi_llm: Gemini không trả fix được — fallback Anthropic %s", ANTHROPIC_MODEL)
+        fixes = _call_anthropic_fixes(prompt, ANTHROPIC_API_KEY, ANTHROPIC_MODEL)
+
+    if not fixes:
+        return text, {}
+
+    return _apply_fixes(text, fixes, uniq_set)
