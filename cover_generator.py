@@ -12,7 +12,6 @@ Quy trình:
 import io
 import logging
 import re
-import time
 import requests
 
 try:
@@ -311,98 +310,30 @@ def _is_safe(prompt: str) -> bool:
     return not any(w in low for w in _NSFW_KEYWORDS)
 
 
-_RETRY_DELAYS = [10, 30, 60]   # giây — backoff giữa các lần thử cùng 1 model
-_RETRY_STATUS = {429, 500, 502, 503, 504}
-
-
-def _is_cuda_oom(status_code: int, body: str) -> bool:
-    """GPU trên HF Inference bận → trả 400 với body chứa 'CUDA out of memory'."""
-    if status_code != 400:
-        return False
-    return "cuda out of memory" in body.lower() or "out of memory" in body.lower()
-
-
-def _call_image_model(model: str, prompt: str, api_token: str) -> Image.Image | None:
-    """
-    Gọi 1 image model với retry backoff khi gặp lỗi tạm thời
-    (429/503/CUDA OOM). Trả None nếu fail hẳn sau mọi lần retry
-    hoặc lỗi không retry được (401/403, payload lỗi…).
-    """
-    api_url = f"https://router.huggingface.co/hf-inference/models/{model}"
-    full_prompt = f"{prompt}, {_NEGATIVE_SUFFIX}"
-    payload = {
-        "inputs": full_prompt,
-        "parameters": {
-            "width": _COVER_WIDTH,
-            "height": _COVER_HEIGHT,
-            "num_inference_steps": 12,
-            "guidance_scale": 3.5,
-        },
-    }
-
-    attempts = len(_RETRY_DELAYS) + 1
-    for attempt in range(attempts):
-        try:
-            resp = requests.post(
-                api_url,
-                headers={"Authorization": f"Bearer {api_token}"},
-                json=payload,
-                timeout=120,
-            )
-        except Exception as e:
-            logger.error(f"  ❌ Image {model} network error: {e}")
-            if attempt < attempts - 1:
-                delay = _RETRY_DELAYS[attempt]
-                logger.info(f"     Retry sau {delay}s...")
-                time.sleep(delay)
-                continue
-            return None
-
-        if resp.status_code == 200:
-            try:
-                return Image.open(io.BytesIO(resp.content))
-            except Exception as e:
-                logger.error(f"  ❌ Image {model} parse error: {e}")
-                return None
-
-        body = resp.text[:200]
-        transient = resp.status_code in _RETRY_STATUS or _is_cuda_oom(resp.status_code, resp.text)
-
-        if transient and attempt < attempts - 1:
-            delay = _RETRY_DELAYS[attempt]
-            reason = "CUDA OOM" if _is_cuda_oom(resp.status_code, resp.text) else f"HTTP {resp.status_code}"
-            logger.warning(f"  ⚠️ Image {model} {reason} — retry sau {delay}s ({attempt + 1}/{attempts - 1})")
-            time.sleep(delay)
-            continue
-
-        logger.error(f"  ❌ Image {model} error: {resp.status_code} — {body}")
-        return None
-
-    return None
-
-
 def _generate_flux_image(prompt: str, api_token: str) -> Image.Image | None:
     """
-    Tạo ảnh cover 9:16: thử model chính → retry → fallback models.
+    Tạo ảnh cover 9:16 qua `hf_image.generate_flux_image` — chain provider
+    fal-ai → replicate → hf-inference. Trả None nếu mọi provider đều fail
+    (caller sẽ fallback sang placeholder tĩnh).
     """
     try:
-        from config import HF_IMAGE_MODEL, HF_IMAGE_FALLBACK_MODELS
+        from hf_image import generate_flux_image
     except ImportError:
-        HF_IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
-        HF_IMAGE_FALLBACK_MODELS = []
+        from .hf_image import generate_flux_image  # type: ignore
 
-    models = [HF_IMAGE_MODEL] + [m for m in HF_IMAGE_FALLBACK_MODELS if m != HF_IMAGE_MODEL]
-
-    for idx, model in enumerate(models):
-        label = "chính" if idx == 0 else f"fallback {idx}"
-        logger.info(f"     Image model [{label}]: {model}")
-        img = _call_image_model(model, prompt, api_token)
-        if img is not None:
-            return img
-        if idx < len(models) - 1:
-            logger.warning(f"     → Chuyển sang image model dự phòng")
-
-    return None
+    full_prompt = f"{prompt}, {_NEGATIVE_SUFFIX}"
+    try:
+        return generate_flux_image(
+            full_prompt,
+            api_token=api_token,
+            width=_COVER_WIDTH,
+            height=_COVER_HEIGHT,
+            num_inference_steps=4,
+            guidance_scale=0.0,
+        )
+    except RuntimeError as e:
+        logger.error(f"  ❌ Cover image generation fail: {e}")
+        return None
 
 
 def _compress_image(img: Image.Image, max_size_kb: int = 200) -> bytes:

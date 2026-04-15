@@ -112,14 +112,28 @@ SRT_WORDS_PER_SECOND  = float(os.environ.get("SRT_WORDS_PER_SECOND", "0.25"))
 HF_API_TOKEN = os.environ.get("HF_API_TOKEN", "")
 HF_IMAGE_MODEL = "black-forest-labs/FLUX.1-schnell"
 HF_IMAGE_STEPS = 4           # schnell works best with 1-4 steps
-# Model dự phòng khi model chính quá tải / CUDA OOM / 503.
-# Danh sách được thử tuần tự; để rỗng nếu chỉ dùng 1 model.
-HF_IMAGE_FALLBACK_MODELS = [
-    # FLUX.1-dev: cùng family FLUX (aesthetic nhất quán với schnell), chất lượng
-    # cao hơn nhưng chậm. Thử trước khi rớt xuống SD3.5.
-    "black-forest-labs/FLUX.1-dev",
-    # SD 3.5 Large: family khác — dùng khi cả 2 FLUX đều bị OOM/deprecate.
-    "stabilityai/stable-diffusion-3.5-large",
+
+# Chain (model, provider) — thử tuần tự đến khi 1 combo trả ảnh. Cấu trúc
+# phẳng này cho phép fallback QUA model khác khi model chính fail toàn bộ
+# provider. Thứ tự: free → same-model paid → fallback-model paid.
+#
+# Entry format: (model_id, provider, attempts, delay_seconds).
+#
+# Giá tham khảo (tại thời điểm cấu hình, đọc lại HF billing dashboard):
+#   • FLUX.1-schnell  — ~$0.003/ảnh  (4 steps, nhanh, aesthetic C-drama tốt)
+#   • FLUX.1-dev      — ~$0.025/ảnh  (28 steps, chất lượng cao hơn schnell)
+#   • SD 3.5 Large    — ~$0.065/ảnh  (khác family, last resort)
+HF_IMAGE_CHAIN = [
+    # Tier 1 — FLUX.1-schnell qua cả 3 provider (ưu tiên free)
+    ("black-forest-labs/FLUX.1-schnell", "hf-inference", 1, 0),
+    ("black-forest-labs/FLUX.1-schnell", "fal-ai",       1, 0),
+    ("black-forest-labs/FLUX.1-schnell", "replicate",    1, 0),
+    # Tier 2 — FLUX.1-dev (cùng family, chất lượng cao hơn — aesthetic vẫn
+    # nhất quán với schnell). Bỏ qua hf-inference vì provider đã deprecate.
+    ("black-forest-labs/FLUX.1-dev",     "fal-ai",       1, 0),
+    ("black-forest-labs/FLUX.1-dev",     "replicate",    1, 0),
+    # Tier 3 — SD 3.5 Large (khác family). Chỉ dùng khi FLUX toàn diện chết.
+    ("stabilityai/stable-diffusion-3.5-large", "fal-ai", 1, 0),
 ]
 # Kích thước tối ưu (bội số 64):
 #   9:16 → 768×1344  (YouTube Shorts / TikTok)
