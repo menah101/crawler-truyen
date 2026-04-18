@@ -1201,6 +1201,12 @@ if __name__ == '__main__':
                    help='Chỉ tạo ảnh bìa (cover) cho truyện đã có trong DB (không crawl lại)')
     p.add_argument('--cover-from-dir', type=str, metavar='CHAPTERS_DIR',
                    help='Tạo cover từ thư mục chapters/*.json đã có. VD: --cover-from-dir docx_output/2026-04-08/ten-truyen/chapters')
+    p.add_argument('--rewrite-from-dir', type=str, metavar='CHAPTERS_DIR',
+                   help='Rewrite lại các chương JSON trong thư mục chapters/ (ghi đè tại chỗ, có backup). VD: --rewrite-from-dir docx_output/2026-04-17/ten-truyen/chapters')
+    p.add_argument('--rewrite-chapter', type=int, nargs='+', metavar='N',
+                   help='Dùng cùng --rewrite-from-dir: chỉ rewrite các số chương được liệt kê')
+    p.add_argument('--rewrite-no-backup', action='store_true',
+                   help='Dùng cùng --rewrite-from-dir: bỏ qua bước backup')
     p.add_argument('--from-dir', type=str, metavar='NOVEL_DIR',
                    help='Tạo Shorts/Thumbnail từ thư mục truyện đã có (chapters/*.json). Dùng kèm --shorts và/hoặc --images. VD: --from-dir docx_output/2026-03-26/ten-truyen --shorts --images')
     p.add_argument('--shorts-seo', type=str, metavar='SHORTS_DIR',
@@ -1356,6 +1362,27 @@ if __name__ == '__main__':
             print(f"✅ Cover đã lưu: {cover_path}")
         else:
             print("❌ Không tạo được cover")
+        sys.exit(0)
+
+    # ── Rewrite from dir (chapters/*.json, không cần DB) ─────────
+    if args.rewrite_from_dir:
+        from chapter_rewriter import rewrite_chapters_dir
+
+        only = set(args.rewrite_chapter) if args.rewrite_chapter else None
+        print(f"✍️  Rewrite chương từ: {args.rewrite_from_dir}")
+        stats = rewrite_chapters_dir(
+            args.rewrite_from_dir,
+            only_numbers=only,
+            backup=not args.rewrite_no_backup,
+        )
+        print()
+        print(f"📊 Tổng kết:")
+        print(f"   Tổng số file : {stats['total']}")
+        print(f"   Đã rewrite   : {stats['rewritten']}")
+        print(f"   Bỏ qua       : {stats['skipped']}")
+        print(f"   Lỗi          : {stats['failed']}")
+        if stats['backup_dir']:
+            print(f"   Backup       : {stats['backup_dir']}")
         sys.exit(0)
 
     # ── Shorts only (từ DB, không crawl lại) ─────────────────────
