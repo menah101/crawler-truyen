@@ -12,6 +12,7 @@ Công cụ tự động tải truyện, viết lại bằng AI, và tạo nội 
 | [Scraper](docs/scraper.md) | Tải truyện từ nhiều nguồn | `scraper.py`, `run.py` |
 | [Rewriter](docs/rewriter.md) | Viết lại truyện bằng AI, fallback chain | `rewriter.py` |
 | [Chapter Rewriter](docs/chapter_rewriter.md) | Rewrite lại chapters/*.json đã có (in-place + backup) | `chapter_rewriter.py` |
+| [Social Publisher](docs/social_publisher.md) | Chia sẻ truyện lên Telegram/Discord/X tự động | `social_publisher.py` |
 | [DOCX Exporter](docs/docx_exporter.md) | Xuất file Word (.docx) | `docx_exporter.py` |
 | [SEO Analyzer](docs/seo_analyzer.md) | Tiêu đề YouTube, mô tả, hashtag, tags website | `seo_analyzer.py` |
 | [Image Generator](docs/image_generator.md) | Tạo 30 ảnh thumbnail 16:9 bằng FLUX | `image_generator.py`, `hf_image.py` |
@@ -24,6 +25,18 @@ Công cụ tự động tải truyện, viết lại bằng AI, và tạo nội 
 | [Watchlist](docs/watchlist.md) | Theo dõi truyện, tải chương mới tự động | `watchlist.py` |
 | [Database](docs/database.md) | Quản lý DB, chuẩn hóa mô tả | `db_helper.py`, `normalize_descriptions.py` |
 | [Vietnamese LLM Correct](docs/vi_llm_correct.md) | Sửa âm tiết tiếng Việt bị hỏng bằng AI | `vi_llm_correct.py`, `vi_validator.py` |
+| [Chapter Wrapper](docs/chapter_wrapper.md) | Sinh summary/highlight/nextPreview cho mỗi chương (AdSense §1) | `chapter_wrapper.py` |
+| [Novel Wrapper](docs/novel_wrapper.md) | Sinh review/analysis/FAQ cho mỗi truyện (AdSense §2) | `novel_wrapper.py` |
+| [AdSense Recovery](docs/adsense_recovery.md) | Playbook khi bị reject "Low-value content" | `audit_indexable.py`, §1+§2+§5 |
+| [Wrapper Sync](docs/wrapper_sync.md) | Push editorial wrappers từ local → pi4 qua HTTP | `wrapper_sync.py`, `/api/admin/wrappers` |
+| [Cách 3 — HTTP Sync](docs/cach_3_http_sync.md) | Concept + setup: vì sao chọn HTTP, so sánh 3 phương án | `wrapper_sync.py` |
+| [Audit Indexable](docs/audit.md) | Quét content nguy cơ AdSense reject (5 nhóm signal) | `audit_indexable.py` |
+| [Chapter Splitter](docs/chapter_splitter.md) | Tách chương cho thin novels — giữ 100% nội dung | `chapter_splitter.py` |
+| [Chapter Merger](docs/chapter_merger.md) | Gộp chương ngắn (< 300 từ) vào chương kế trước/sau | `chapter_merger.py` |
+| [API Client](docs/api_client.md) | POST truyện mới lên pi4 (`IMPORT_MODE="api"`) | `api_client.py`, `/api/admin/import` |
+| [TTS Generator](docs/tts.md) | Edge TTS — chuyển chapters thành MP3 | `tts_generator.py` |
+| [Quy trình A-Z](docs/quy_trinh_a_z.md) | Playbook tổng từ crawl → wrap → sync pi4 | `run.py`, `workflow_full.sh` |
+| [Daily Pipeline](docs/daily_pipeline.md) | Crawl 5 truyện/ngày từ JSON + wrap + sync pi4 (cron-friendly) | `daily_pipeline.sh`, `push_to_pi4.py` |
 
 ---
 
@@ -36,6 +49,23 @@ pip install -r requirements.txt
 # Tải + tạo toàn bộ nội dung cùng lúc
 python run.py --url "https://yeungontinh.baby/truyen/ten-truyen/" --seo --images --shorts
 ```
+
+### LLM provider — 2 setting riêng
+
+`crawler/config.py` tách provider theo task để tối ưu cost vs chất lượng:
+
+| Setting | Default | Dùng cho |
+|---------|---------|----------|
+| `REWRITE_PROVIDER` | `gemini` | crawl, split, retitle, hook (rẻ, tốn nhiều token) |
+| `WRAP_PROVIDER` | `anthropic` | wrap §1 + §2 (chất lượng cao, hiển thị trên web) |
+
+`.env` chỉ cần API key:
+```bash
+GEMINI_API_KEY=AIza...
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Cost ước tính 100 truyện × 50 chương: **~$30** (vs ~$200 nếu dùng full Anthropic). Xem [docs/setup.md](docs/setup.md#chọn-llm-provider).
 
 ---
 
@@ -122,11 +152,23 @@ python merge_video.py long --latest --per-image 10 --zoom alternate --label --su
 python run.py --seo-only "tên truyện"
 python run.py --images-only "tên truyện"
 python run.py --shorts-only "tên truyện"
+python run.py --shorts-from-dir docx_output/YYYY-MM-DD/ten-truyen   # không cần DB
 python run.py --cover-only "tên truyện"
 
 # ── Rewrite lại chương đã có ──────────────────────────────────
 python run.py --rewrite-from-dir docx_output/YYYY-MM-DD/ten-truyen/chapters
 python run.py --rewrite-from-dir docx_output/.../chapters --rewrite-chapter 1 3
+
+# ── Editorial wrapper (AdSense §1 + §2) ───────────────────────
+python run.py --wrap-slug "ten truyen"            # summary/highlight cho mọi chương
+python run.py --review-slug "ten truyen"          # review/analysis/FAQ cho novel
+python run.py --review-all                        # wrap §2 cho tất cả truyện
+python audit_indexable.py                         # audit content mỏng / chưa wrap
+python run.py --sync-wrappers                     # đẩy wrapper local → pi4 qua HTTP
+
+# ── Chia sẻ truyện lên MXH ────────────────────────────────────
+python run.py --social-publish docx_output/YYYY-MM-DD/ten-truyen --social-dry-run
+python run.py --social-publish docx_output/YYYY-MM-DD/ten-truyen --social-only telegram,discord
 
 # ── Database ──────────────────────────────────────────────────
 python run.py --db-list
@@ -151,6 +193,7 @@ python organize.py --apply
 | `scraper.py` | Lấy nội dung truyện từ website | [Scraper](docs/scraper.md) |
 | `rewriter.py` | Viết lại truyện bằng AI | [Rewriter](docs/rewriter.md) |
 | `chapter_rewriter.py` | Rewrite lại chapters/*.json đã có | [Chapter Rewriter](docs/chapter_rewriter.md) |
+| `social_publisher.py` | Đăng truyện lên Telegram/Discord/X | [Social Publisher](docs/social_publisher.md) |
 | `docx_exporter.py` | Xuất file Word (.docx) | [DOCX](docs/docx_exporter.md) |
 | `seo_analyzer.py` | Tạo SEO YouTube + tags website | [SEO](docs/seo_analyzer.md) |
 | `image_generator.py` | Tạo 30 ảnh thumbnail | [Images](docs/image_generator.md) |
@@ -166,7 +209,16 @@ python organize.py --apply
 | `normalize_descriptions.py` | Chuẩn hóa mô tả truyện | [Database](docs/database.md) |
 | `vi_llm_correct.py` | Sửa âm tiết tiếng Việt | [VI Correct](docs/vi_llm_correct.md) |
 | `vi_validator.py` | Validate ngữ âm tiếng Việt | [VI Correct](docs/vi_llm_correct.md) |
+| `chapter_wrapper.py` | Sinh editorial cho mỗi chương | [Chapter Wrapper](docs/chapter_wrapper.md) |
+| `novel_wrapper.py` | Sinh editorial + FAQ cho mỗi truyện | [Novel Wrapper](docs/novel_wrapper.md) |
+| `audit_indexable.py` | Audit AdSense-risk content | [Audit](docs/audit.md) |
+| `chapter_splitter.py` | Tách thin novels thành nhiều chương | [Chapter Splitter](docs/chapter_splitter.md) |
+| `chapter_merger.py` | Gộp chương ngắn vào chương kế trước/sau | [Chapter Merger](docs/chapter_merger.md) |
+| `push_to_pi4.py` | Push novel mới local → pi4 qua /api/admin/import | [Daily Pipeline](docs/daily_pipeline.md) |
+| `daily_pipeline.sh` | Orchestrator crawl 5 truyện/ngày + sync pi4 | [Daily Pipeline](docs/daily_pipeline.md) |
+| `wrapper_sync.py` | Push wrapper local → pi4 qua HTTP | [Wrapper Sync](docs/wrapper_sync.md) |
+| `tts_generator.py` | Edge TTS chapters → MP3 | [TTS](docs/tts.md) |
+| `api_client.py` | POST novel mới lên pi4 (IMPORT_MODE='api') | [API Client](docs/api_client.md) |
 | `srt_exporter.py` | Chuyển DOCX → phụ đề SRT | [Video](docs/merge_video.md) |
-| `translator.py` | Dịch nội dung | — |
-| `api_client.py` | API client cho remote import | — |
-| `test_faces.py` | Test nhận diện khuôn mặt | — |
+| `translator.py` | Dịch Anh → Việt (chỉ dùng cho `sources/webnovel.py`) | — |
+| `test_faces.py` | Test nhận diện khuôn mặt (dev tool) | — |

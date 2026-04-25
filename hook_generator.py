@@ -22,11 +22,40 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+CJK_PUNCT_MAP = str.maketrans({
+    '。': '.', '，': ',', '、': ',', '；': ';', '：': ':',
+    '！': '!', '？': '?',
+    '「': '"', '」': '"', '『': '"', '』': '"',
+    '《': '"', '》': '"', '（': '(', '）': ')',
+    '—': '—',
+})
+
+CJK_CHAR_RE = re.compile(r'[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]')
+
+
+def _normalize_punctuation(text: str) -> str:
+    """Đổi dấu câu Trung/Nhật sang Latin để LLM không bị drift sang CJK."""
+    return text.translate(CJK_PUNCT_MAP)
+
+
+def _has_cjk(text: str) -> bool:
+    """True nếu text chứa chữ Hán/Hiragana/Katakana/Hangul."""
+    return bool(CJK_CHAR_RE.search(text))
+
+
 # ─────────────────────────────────────────────────────────────────
 # Prompt
 # ─────────────────────────────────────────────────────────────────
 
 HOOK_PROMPT_TEMPLATE = """Bạn là biên kịch chuyên làm video TikTok và YouTube Shorts cho kênh truyện audio tiếng Việt "Hồng Trần Truyện Audio".
+
+⚠️ QUY TẮC NGÔN NGỮ TUYỆT ĐỐI (BẮT BUỘC):
+- Toàn bộ output PHẢI 100% bằng tiếng Việt có dấu.
+- KHÔNG được dùng BẤT KỲ ký tự Hán/Trung/Nhật/Hàn nào (漢字, 中文, かな, 한글).
+- KHÔNG được dùng dấu câu Trung: 。 ， ； ： ！ ？ 「 」 『 』 《 》 — chỉ dùng `. , ; : ! ?` kiểu Latin.
+- Nếu bạn thấy chữ Hán xuất hiện trong output của chính mình, DỪNG NGAY và viết lại bằng tiếng Việt.
+- Tên nhân vật giữ nguyên âm Hán-Việt (VD: "Tô Tô", "Lục Chấp") — KHÔNG viết lại bằng chữ Hán.
+- Chỉ các trường ACTION/SETTING/EMOTION/APPEARANCE được dùng tiếng Anh (đã quy định bên dưới).
 
 Nhiệm vụ: Đọc nội dung truyện bên dưới và tạo ra một câu chuyện hook ngắn để làm video Shorts.
 
@@ -120,13 +149,13 @@ def _sample_chapters(chapters, max_chars=6000):
     per_chapter = max_chars // max(len(selected), 1)
 
     for ch in selected:
-        content = ch.get('content', '').strip()
+        content = _normalize_punctuation(ch.get('content', '').strip())
         if not content:
             continue
         # Cắt bớt nếu quá dài
         snippet = content[:per_chapter]
         # Cắt ở cuối câu để không bị cụt giữa chừng
-        last_dot = max(snippet.rfind('。'), snippet.rfind('.'), snippet.rfind('!'), snippet.rfind('?'))
+        last_dot = max(snippet.rfind('.'), snippet.rfind('!'), snippet.rfind('?'))
         if last_dot > per_chapter * 0.7:
             snippet = snippet[:last_dot + 1]
         parts.append(f"[Chương {ch.get('number', '?')}]\n{snippet}")
@@ -317,30 +346,47 @@ def generate_hook_story(title: str, author: str, genres_str: str, chapters: list
     )
 
     content_sample = _sample_chapters(chapters)
+
+    def _call_llm(prompt_text: str) -> str | None:
+        if REWRITE_PROVIDER == "gemini" and GEMINI_API_KEY:
+            logger.info("  🤖 Hook generator: Gemini")
+            return _call_gemini(prompt_text, GEMINI_API_KEY, GEMINI_MODEL)
+        if REWRITE_PROVIDER == "anthropic" and ANTHROPIC_API_KEY:
+            logger.info("  🤖 Hook generator: Anthropic Claude")
+            return _call_anthropic(prompt_text, ANTHROPIC_API_KEY, ANTHROPIC_MODEL)
+        logger.info("  🤖 Hook generator: Ollama")
+        return _call_ollama(prompt_text, OLLAMA_BASE_URL, OLLAMA_MODEL)
+
     prompt_text = HOOK_PROMPT_TEMPLATE.format(
         title=title,
         author=author,
         genres=genres_str or "Ngôn tình / Cổ trang",
         content_sample=content_sample,
     )
-
-    raw = None
-
-    if REWRITE_PROVIDER == "gemini" and GEMINI_API_KEY:
-        logger.info("  🤖 Hook generator: Gemini")
-        raw = _call_gemini(prompt_text, GEMINI_API_KEY, GEMINI_MODEL)
-
-    elif REWRITE_PROVIDER == "anthropic" and ANTHROPIC_API_KEY:
-        logger.info("  🤖 Hook generator: Anthropic Claude")
-        raw = _call_anthropic(prompt_text, ANTHROPIC_API_KEY, ANTHROPIC_MODEL)
-
-    else:
-        logger.info("  🤖 Hook generator: Ollama")
-        raw = _call_ollama(prompt_text, OLLAMA_BASE_URL, OLLAMA_MODEL)
+    raw = _call_llm(prompt_text)
 
     if not raw:
         logger.error("  ❌ Hook generator thất bại — không nhận được kết quả từ LLM")
         return {"title": title, "hook_story": "", "scenes": []}
+
+    # Retry 1 lần nếu LLM drift sang tiếng Trung/Nhật/Hàn
+    if _has_cjk(raw):
+        logger.warning("  ⚠️  Output có ký tự CJK — retry với cảnh báo mạnh hơn")
+        retry_prompt = (
+            "LẦN TRƯỚC BẠN ĐÃ VIẾT LẪN CHỮ HÁN VÀO OUTPUT — ĐIỀU NÀY HOÀN TOÀN KHÔNG "
+            "ĐƯỢC CHẤP NHẬN. Hãy viết lại từ đầu, 100% bằng tiếng Việt có dấu, "
+            "không một ký tự Hán/Nhật/Hàn nào, không dấu câu 。，！？.\n\n"
+            + prompt_text
+        )
+        retry_raw = _call_llm(retry_prompt)
+        if retry_raw and not _has_cjk(retry_raw):
+            raw = retry_raw
+        elif retry_raw:
+            logger.warning("  ⚠️  Retry vẫn có CJK — strip ký tự Hán khỏi output")
+            raw = CJK_CHAR_RE.sub('', retry_raw).translate(CJK_PUNCT_MAP)
+        else:
+            logger.warning("  ⚠️  Retry fail — strip CJK khỏi output gốc")
+            raw = CJK_CHAR_RE.sub('', raw).translate(CJK_PUNCT_MAP)
 
     parsed = _parse_output(raw)
     parsed["title"] = title

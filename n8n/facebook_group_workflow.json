@@ -1,0 +1,108 @@
+{
+  "name": "Hong Tran Truyen — Facebook Group Publisher",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "publish-novel",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook — /publish-novel",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "publish-novel"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Expected payload từ social_watcher hoặc Next.js API:\n// { slug, title, description, url, cover_url, hashtags: [...] }\n//\n// Format caption cho FB Group\nconst p = $input.item.json;\nconst tags = (p.hashtags || []).join(' ');\nconst caption = [\n  `📖 Truyện mới: ${p.title}`,\n  '',\n  p.description || '',\n  '',\n  `👉 Đọc tại: ${p.url}`,\n  tags,\n].filter(Boolean).join('\\n');\n\nreturn { json: { ...p, caption } };"
+      },
+      "id": "format-caption",
+      "name": "Format Caption",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "graphApi",
+        "resource": "post",
+        "operation": "create",
+        "groupId": "YOUR_FACEBOOK_GROUP_ID",
+        "message": "={{ $json.caption }}",
+        "additionalFields": {
+          "link": "={{ $json.url }}"
+        }
+      },
+      "id": "fb-group-post",
+      "name": "Facebook Group Post",
+      "type": "n8n-nodes-base.facebookGraphApi",
+      "typeVersion": 1,
+      "position": [680, 200],
+      "credentials": {
+        "facebookGraphApi": {
+          "id": "REPLACE_WITH_FB_CREDENTIAL_ID",
+          "name": "Facebook Graph API"
+        }
+      },
+      "notes": "⚠️ Node này dùng được nếu bạn có app Business Integration được Meta approve cho groups_access_member_info. Nếu không, hãy BỎ node này và dùng nhánh Puppeteer ở dưới."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3001/post-to-fb-group",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ group_id: 'YOUR_GROUP_ID', caption: $json.caption, image_url: $json.cover_url, link: $json.url }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "puppeteer-fallback",
+      "name": "Puppeteer Fallback (localhost:3001)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 400],
+      "notes": "Fallback: gọi 1 microservice Puppeteer của bạn tự host (session cookie Facebook). Xem docs/social_publisher.md § Facebook Group."
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, slug: $json.slug }) }}"
+      },
+      "id": "respond",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Webhook — /publish-novel": {
+      "main": [[{ "node": "Format Caption", "type": "main", "index": 0 }]]
+    },
+    "Format Caption": {
+      "main": [[
+        { "node": "Facebook Group Post", "type": "main", "index": 0 },
+        { "node": "Puppeteer Fallback (localhost:3001)", "type": "main", "index": 0 }
+      ]]
+    },
+    "Facebook Group Post": {
+      "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]]
+    },
+    "Puppeteer Fallback (localhost:3001)": {
+      "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Nhận webhook từ social_watcher/Next.js và đăng lên Facebook Group qua 2 nhánh: (a) Graph API chính thức nếu app được Meta approve, (b) Puppeteer microservice tự host nếu không."
+  }
+}

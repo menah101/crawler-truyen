@@ -1197,6 +1197,8 @@ if __name__ == '__main__':
                    help='Tạo nội dung TikTok/YouTube Shorts: hook story + ảnh từng scene')
     p.add_argument('--shorts-only', type=str, metavar='KEYWORD',
                    help='Chỉ tạo Shorts (hook story + ảnh) cho truyện đã có trong DB (không crawl lại)')
+    p.add_argument('--shorts-from-dir', type=str, metavar='DIR',
+                   help='Tạo Shorts từ thư mục chapters/*.json (không cần DB). Chấp nhận novel dir hoặc chapters/ sub-dir. VD: --shorts-from-dir docx_output/2026-04-19/ten-truyen')
     p.add_argument('--cover-only', type=str, metavar='KEYWORD',
                    help='Chỉ tạo ảnh bìa (cover) cho truyện đã có trong DB (không crawl lại)')
     p.add_argument('--cover-from-dir', type=str, metavar='CHAPTERS_DIR',
@@ -1207,6 +1209,42 @@ if __name__ == '__main__':
                    help='Dùng cùng --rewrite-from-dir: chỉ rewrite các số chương được liệt kê')
     p.add_argument('--rewrite-no-backup', action='store_true',
                    help='Dùng cùng --rewrite-from-dir: bỏ qua bước backup')
+    p.add_argument('--wrap-from-dir', type=str, metavar='DIR',
+                   help='Sinh editorial wrapper (summary/highlight/next preview) cho chapters/*.json. Chống AdSense "low-value content".')
+    p.add_argument('--wrap-slug', type=str, metavar='KEYWORD',
+                   help='Sinh editorial wrapper cho truyện đã có trong DB (update trực tiếp 3 cột summary/highlight/nextPreview)')
+    p.add_argument('--wrap-all', action='store_true',
+                   help='Wrap §1 cho mọi novel có chapter chưa wrap (loop --wrap-slug)')
+    p.add_argument('--wrap-chapter', type=int, nargs='+', metavar='N',
+                   help='Dùng cùng --wrap-from-dir/--wrap-slug: chỉ wrap các số chương liệt kê')
+    p.add_argument('--wrap-redo', action='store_true',
+                   help='Dùng cùng --wrap-*: ghi đè wrapper đã có')
+    p.add_argument('--review-slug', type=str, metavar='KEYWORD',
+                   help='Sinh editorial review + phân tích nhân vật + FAQ cho 1 truyện trong DB (update trực tiếp Novel)')
+    p.add_argument('--review-from-dir', type=str, metavar='DIR',
+                   help='Sinh review từ novel dir, ghi ra novel_wrapper.json (không update DB)')
+    p.add_argument('--review-all', action='store_true',
+                   help='Sinh review cho toàn bộ novel published trong DB')
+    p.add_argument('--review-redo', action='store_true',
+                   help='Dùng cùng --review-*: ghi đè review đã có')
+    p.add_argument('--sync-wrappers', action='store_true',
+                   help='Đẩy mọi wrapper (novel + chapter) từ DB local lên pi4 qua /api/admin/wrappers')
+    p.add_argument('--sync-wrappers-slug', type=str, metavar='KEYWORD',
+                   help='Chỉ sync wrapper của novel có slug LIKE keyword')
+    p.add_argument('--sync-wrappers-dry-run', action='store_true',
+                   help='Dùng cùng --sync-wrappers*: in payload không gọi API')
+    p.add_argument('--social-publish', type=str, metavar='NOVEL_DIR',
+                   help='Chia sẻ truyện lên Telegram/Discord/X. VD: --social-publish docx_output/2026-04-19/ten-truyen')
+    p.add_argument('--social-only', type=str, default='',
+                   help='Dùng cùng --social-publish: chỉ đăng lên các adapter cụ thể (VD: --social-only telegram,discord)')
+    p.add_argument('--social-dry-run', action='store_true',
+                   help='Dùng cùng --social-publish: preview không đăng thật')
+    p.add_argument('--social-watch', action='store_true',
+                   help='Auto-quét DB, đăng truyện mới publish lên các MXH đã cấu hình (chạy 1 lần)')
+    p.add_argument('--social-watch-daemon', type=int, metavar='SECONDS',
+                   help='Daemon watcher, poll mỗi N giây. VD: --social-watch-daemon 300')
+    p.add_argument('--social-watch-hours', type=int, default=48,
+                   help='Watcher chỉ xét truyện publish trong N giờ qua (mặc định: 48)')
     p.add_argument('--from-dir', type=str, metavar='NOVEL_DIR',
                    help='Tạo Shorts/Thumbnail từ thư mục truyện đã có (chapters/*.json). Dùng kèm --shorts và/hoặc --images. VD: --from-dir docx_output/2026-03-26/ten-truyen --shorts --images')
     p.add_argument('--shorts-seo', type=str, metavar='SHORTS_DIR',
@@ -1364,6 +1402,57 @@ if __name__ == '__main__':
             print("❌ Không tạo được cover")
         sys.exit(0)
 
+    # ── Social watcher (auto-quét DB + đăng MXH) ─────────────────
+    if args.social_watch or args.social_watch_daemon:
+        from social_watcher import watch_once, watch_forever
+
+        only = [x.strip() for x in args.social_only.split(',') if x.strip()] or None
+
+        if args.social_watch_daemon:
+            watch_forever(
+                interval=args.social_watch_daemon,
+                hours=args.social_watch_hours,
+                only=only,
+            )
+        else:
+            results = watch_once(
+                hours=args.social_watch_hours,
+                only=only,
+                dry_run=args.social_dry_run,
+            )
+            print(f"📊 Đã xử lý {len(results)} truyện")
+        sys.exit(0)
+
+    # ── Social publish (Telegram/Discord/X từ thư mục truyện) ────
+    if args.social_publish:
+        from social_publisher import payload_from_novel_dir, publish_to_all
+
+        payload = payload_from_novel_dir(args.social_publish)
+        only = [x.strip() for x in args.social_only.split(',') if x.strip()] or None
+
+        print(f"📣 Đăng truyện: {payload.title}")
+        print(f"   URL  : {payload.url}")
+        print(f"   Cover: {payload.cover_path or '(none)'}")
+        print()
+
+        results = publish_to_all(payload, only=only, dry_run=args.social_dry_run)
+
+        print()
+        print("📊 Kết quả:")
+        any_fail = False
+        for name, r in results.items():
+            icon = '✅' if r.get('ok') else ('⏭️' if r.get('skipped') else '❌')
+            extra = ''
+            if r.get('dry_run'):
+                extra = ' (dry run)'
+            elif r.get('error'):
+                extra = f' — {r["error"][:80]}'
+                any_fail = True
+            elif r.get('reason'):
+                extra = f' — {r["reason"]}'
+            print(f'   {icon} {name}{extra}')
+        sys.exit(1 if any_fail else 0)
+
     # ── Rewrite from dir (chapters/*.json, không cần DB) ─────────
     if args.rewrite_from_dir:
         from chapter_rewriter import rewrite_chapters_dir
@@ -1383,6 +1472,87 @@ if __name__ == '__main__':
         print(f"   Lỗi          : {stats['failed']}")
         if stats['backup_dir']:
             print(f"   Backup       : {stats['backup_dir']}")
+        sys.exit(0)
+
+    # ── Sync wrappers local → pi4 ────────────────────────────────
+    if args.sync_wrappers or args.sync_wrappers_slug:
+        from wrapper_sync import sync as sync_wrappers
+        print('🔄 Sync editorial wrappers: local → pi4')
+        sync_wrappers(
+            slug=args.sync_wrappers_slug,
+            novels_only=False,
+            chapters_only=False,
+            batch_size=100,
+            dry_run=args.sync_wrappers_dry_run,
+        )
+        sys.exit(0)
+
+    # ── Novel wrapper (editorial review + character + FAQ) ───────
+    if args.review_slug or args.review_from_dir or args.review_all:
+        from novel_wrapper import wrap_all_novels_in_db, wrap_novel_from_dir, wrap_novel_in_db
+
+        if args.review_all:
+            print('📚 Review toàn bộ novel published trong DB')
+            stats = wrap_all_novels_in_db(skip_existing=not args.review_redo)
+            print(f'\n📊 Tổng kết: {stats}')
+        elif args.review_slug:
+            print(f'📖 Review cho truyện: {args.review_slug}')
+            r = wrap_novel_in_db(args.review_slug, skip_existing=not args.review_redo)
+            print('✅ Done' if r.get('editorial_review') else '❌ Fail')
+        else:
+            print(f'📖 Review từ: {args.review_from_dir}')
+            r = wrap_novel_from_dir(args.review_from_dir)
+            print('✅ Done' if r.get('editorial_review') else '❌ Fail')
+        sys.exit(0)
+
+    # ── Chapter wrapper (editorial intro/highlight/next_preview) ──
+    if args.wrap_from_dir or args.wrap_slug or args.wrap_all:
+        from chapter_wrapper import (
+            wrap_all_chapters_in_db, wrap_chapters_dir, wrap_chapters_in_db,
+        )
+
+        only = set(args.wrap_chapter) if args.wrap_chapter else None
+
+        if args.wrap_all:
+            print(f"✍️  Wrap §1 cho mọi novel có chapter chưa wrap")
+            stats = wrap_all_chapters_in_db(
+                skip_existing=not args.wrap_redo,
+            )
+            print()
+            print(f"📊 Tổng kết: {stats}")
+            sys.exit(0)
+        elif args.wrap_slug:
+            print(f"✍️  Wrap editorial cho truyện (DB): {args.wrap_slug}")
+            stats = wrap_chapters_in_db(
+                args.wrap_slug,
+                only_numbers=only,
+                skip_existing=not args.wrap_redo,
+            )
+        else:
+            d = args.wrap_from_dir
+            if os.path.basename(d) != 'chapters' and os.path.isdir(os.path.join(d, 'chapters')):
+                d = os.path.join(d, 'chapters')
+            print(f"✍️  Wrap editorial từ: {d}")
+            # Lấy title/genres từ seo.txt nếu có
+            novel_dir = os.path.dirname(d) if os.path.basename(d) == 'chapters' else d
+            title = genres = ''
+            seo_path = os.path.join(novel_dir, 'seo.txt')
+            if os.path.exists(seo_path):
+                import re as _re
+                with open(seo_path, encoding='utf-8') as fp:
+                    for line in fp:
+                        line = line.strip()
+                        if not title and line and not line.startswith('=') and not line.startswith('#'):
+                            title = line
+                        m = _re.search(r'The loai[:\s]+([^\s|]+)', line, _re.IGNORECASE)
+                        if m:
+                            genres = m.group(1).strip()
+            stats = wrap_chapters_dir(
+                d, novel_title=title, genres=genres,
+                only_numbers=only, skip_existing=not args.wrap_redo,
+            )
+        print()
+        print(f"📊 Tổng kết: {stats}")
         sys.exit(0)
 
     # ── Shorts only (từ DB, không crawl lại) ─────────────────────
@@ -1410,6 +1580,58 @@ if __name__ == '__main__':
                 if f.endswith('.docx')
             ]
 
+        print(f"📱 Tạo Shorts cho: {title}  ({len(ch_list)} chương)")
+        _generate_shorts_with_confirm(title, author, genres_str, ch_list, docx_paths, auto=True)
+        sys.exit(0)
+
+    # ── Shorts from dir (chapters/*.json, không cần DB) ──────────
+    if args.shorts_from_dir:
+        import json as _json
+        import glob as _glob
+        import re as _re
+
+        novel_dir = os.path.abspath(args.shorts_from_dir)
+        # Cho phép truyền trực tiếp thư mục chapters/ → lùi lên novel dir
+        if os.path.basename(novel_dir) == 'chapters':
+            novel_dir = os.path.dirname(novel_dir)
+        if not os.path.isdir(novel_dir):
+            print(f"❌ Không tìm thấy thư mục: {novel_dir}")
+            sys.exit(1)
+
+        ch_files = sorted(_glob.glob(os.path.join(novel_dir, 'chapters', '*.json')))
+        if not ch_files:
+            print(f"❌ Không tìm thấy file JSON trong: {novel_dir}/chapters/")
+            sys.exit(1)
+
+        ch_list = []
+        for f in ch_files:
+            with open(f, encoding='utf-8') as fp:
+                ch_list.append(_json.load(fp))
+
+        title = author = genres_str = ''
+        seo_path = os.path.join(novel_dir, 'seo.txt')
+        if os.path.exists(seo_path):
+            with open(seo_path, encoding='utf-8') as fp:
+                for line in fp:
+                    line = line.strip()
+                    if not title and line and not line.startswith('=') and not line.startswith('#'):
+                        title = line
+                    m = _re.search(r'The loai[:\s]+([^\s|]+)', line, _re.IGNORECASE)
+                    if m:
+                        genres_str = m.group(1).strip()
+                    m = _re.search(r'Tac gia[:\s]+([^|]+)', line, _re.IGNORECASE)
+                    if m:
+                        author = m.group(1).strip()
+        if not title:
+            title = os.path.basename(novel_dir).replace('-', ' ').title()
+
+        docx_paths = [
+            os.path.join(novel_dir, f)
+            for f in os.listdir(novel_dir)
+            if f.endswith('.docx') and not f.startswith('~$')
+        ]
+
+        print(f"📂 Thư mục: {novel_dir}")
         print(f"📱 Tạo Shorts cho: {title}  ({len(ch_list)} chương)")
         _generate_shorts_with_confirm(title, author, genres_str, ch_list, docx_paths, auto=True)
         sys.exit(0)

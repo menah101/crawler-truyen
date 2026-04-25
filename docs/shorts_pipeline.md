@@ -11,7 +11,37 @@ python run.py --url "https://..." --shorts
 
 # Tạo lại Shorts cho truyện đã có trong database
 python run.py --shorts-only "hanh phuc do toi tu tao"
+
+# Tạo Shorts từ thư mục chapters/*.json (không cần DB)
+python run.py --shorts-from-dir docx_output/2026-04-19/ten-truyen
+# Cũng chấp nhận trực tiếp subdir chapters/
+python run.py --shorts-from-dir docx_output/2026-04-19/ten-truyen/chapters
 ```
+
+### 3 cách tạo Shorts — khi nào dùng cái nào?
+
+| Flag | Nguồn data | Dùng khi |
+|------|-----------|----------|
+| `--shorts` kèm `--url` | Crawl mới | Chạy full pipeline cho truyện chưa có |
+| `--shorts-only KEYWORD` | DB (Prisma SQLite) | Truyện đã import DB, chỉ muốn tạo Shorts |
+| `--shorts-from-dir DIR` | `chapters/*.json` trên đĩa | Không có DB row (VD: đã crawl nhưng chưa import, hoặc chuyển máy) |
+
+## Chống LLM drift sang tiếng Trung
+
+Truyện cổ trang / ngôn tình nguồn Trung có tên nhân vật Hán-Việt (Tô Tô, Lục Chấp…) → LLM (Gemini, Claude) dễ "trượt" output sang tiếng Trung giữa chừng. `hook_generator.py` bảo vệ 3 lớp:
+
+1. **Prompt cứng** — block "⚠️ QUY TẮC NGÔN NGỮ TUYỆT ĐỐI" cấm ký tự Hán/Nhật/Hàn và dấu câu CJK (`。，！？「」《》`).
+2. **Sanitize input** — `_sample_chapters()` tự đổi `。 ，` → `. ,` trong content đưa vào prompt, giảm trigger.
+3. **Detect + retry output** — nếu output chứa CJK, tự retry 1 lần với prompt cảnh báo mạnh hơn. Retry vẫn fail → strip ký tự Hán khỏi output.
+
+Log ví dụ khi phát hiện drift:
+
+```
+⚠️  Output có ký tự CJK — retry với cảnh báo mạnh hơn
+✅ Hook story: 2450 ký tự, 7 scenes
+```
+
+Muốn tắt (VD: truyện tiếng Trung có chủ đích) — sửa `_has_cjk` return False hoặc comment block retry trong `generate_hook_story`.
 
 ## Output
 

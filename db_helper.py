@@ -81,7 +81,9 @@ def get_novel_with_chapters(conn, keyword: str):
     """
     kw = keyword.strip()
     novel = conn.execute("""
-        SELECT id, title, author, slug FROM Novel
+        SELECT id, title, author, slug, description, genres, tags,
+               editorialReview, characterAnalysis, faq
+        FROM Novel
         WHERE id = ? OR slug = ? OR title LIKE ?
         LIMIT 1
     """, (kw, kw, f'%{kw}%')).fetchone()
@@ -90,7 +92,8 @@ def get_novel_with_chapters(conn, keyword: str):
         return None, []
 
     chapters = conn.execute("""
-        SELECT number, title, content FROM Chapter
+        SELECT id, number, title, content, summary, highlight, nextPreview
+        FROM Chapter
         WHERE novelId = ?
         ORDER BY number ASC
     """, (novel['id'],)).fetchall()
