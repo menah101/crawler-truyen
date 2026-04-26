@@ -1914,16 +1914,21 @@ if __name__ == '__main__':
             source_name = args.source
             logger.info(f"🔍 Dùng nguồn chỉ định: {source_name}")
 
-        # Ask user whether to use rewriter
+        # Ask user whether to use rewriter (skip prompt khi stdin không phải tty)
         import config as _cfg
         if _cfg.REWRITE_ENABLED:
             print(f"\n✍️  Rewriter đang bật — provider: {_cfg.REWRITE_PROVIDER.upper()}")
-            ans = input("   Bạn có muốn viết lại nội dung không? [Y/n] ").strip().lower()
-            if ans == 'n':
-                _cfg.REWRITE_ENABLED = False
-                print("   ⏭️  Bỏ qua rewriter — chỉ định dạng đoạn văn\n")
+            if sys.stdin.isatty():
+                ans = input("   Bạn có muốn viết lại nội dung không? [Y/n] ").strip().lower()
+                if ans == 'n':
+                    _cfg.REWRITE_ENABLED = False
+                    print("   ⏭️  Bỏ qua rewriter — chỉ định dạng đoạn văn\n")
+                else:
+                    print()
+                    preflight_check_rewriter()
             else:
-                print()
+                # Cron / pipeline mode → mặc định bật rewriter
+                print("   (non-tty → tự động bật rewriter)\n")
                 preflight_check_rewriter()
         else:
             print("\n⏭️  Rewriter đang tắt (REWRITE_ENABLED=False)\n")
