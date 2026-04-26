@@ -35,7 +35,7 @@ REQUEST_DELAY = 1.5
 # chữ hỏng kiểu "mắững", "tôôi", "vọững". Khuyên dùng Gemini/Claude/DeepSeek.
 REWRITE_ENABLED = True
 # Provider cho REWRITE (crawl chương) + splitter + retitle + hook + rewriter:
-REWRITE_PROVIDER = "gemini"    # 1."gemini" | 2."anthropic" | 3."deepseek" | 4."groq" | 5."huggingface" | 6."ollama" | 7."local"
+REWRITE_PROVIDER = "deepseek"    # 1."gemini" | 2."anthropic" | 3."deepseek" | 4."groq" | 5."huggingface" | 6."ollama" | 7."local"
 # Provider riêng cho WRAP §1 (chapter_wrapper) + WRAP §2 (novel_wrapper).
 # Tách riêng vì wrap là content có giá trị cao (review/analysis/FAQ), nên dùng
 # model mạnh hơn (Anthropic) — còn rewrite/split tốn nhiều token, dùng Gemini cho rẻ.

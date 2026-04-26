@@ -1,19 +1,28 @@
 {
   "stories": [
     {
-      "url": "https://vivutruyen.net/dan-quen-anh-full/"
+      "url": "https://vivutruyen.net/dan-quen-anh-full/",
+      "shorts": true,
+      "long": true,
+      "shorts_publish": false,
+      "long_publish": false,
+      "date_publisb": ""
     },
     {
-      "url": "https://vivutruyen.net/hoa-chua-tan-full/"
+      "url": "https://vivutruyen.net/hoa-chua-tan-full/",
+      "shorts": true,
+      "long": true,
+      "shorts_publish": false,
+      "long_publish": false,
+      "date_publisb": ""
     },
     {
-      "url": "https://vivutruyen.net/4-nam-thu-tinh-trong-ong-nghiem-full/"
-    },
-    {
-      "url": "https://vivutruyen.net/kho-bau-quoc-gia/"
-    },
-    {
-      "url": "https://vivutruyen.net/bua-yeu-vi-chanh-tuyet/"
+      "url": "https://vivutruyen.net/4-nam-thu-tinh-trong-ong-nghiem-full/",
+      "shorts": true,
+      "long": true,
+      "shorts_publish": false,
+      "long_publish": false,
+      "date_publisb": ""
     }
   ]
 }
