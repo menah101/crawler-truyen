@@ -65,28 +65,36 @@ Ngược về local mode: `IMPORT_MODE="local"` (hoặc xóa biến).
   "chapters": [
     {"number": 1, "title": "Chương 1", "content": "..."},
     {"number": 2, "title": "Chương 2", "content": "..."}
-  ]
+  ],
+  "replace_chapters": false
 }
 ```
 
+**`replace_chapters`** (optional, default `false`):
+- `false` (RESUME): SKIP chapter có cùng `(novelId, number)`, chỉ thêm chapter mới.
+- `true` (REPLACE): DELETE TẤT CẢ chapter của novel trước khi INSERT từ payload.
+  Bắt buộc dùng sau khi split/merge ở local vì chapter cũ và mới có cùng `number` nhưng content khác.
+
 **Response** — schema phụ thuộc behavior pi4:
-- Tạo mới: `{success, novel_id, slug, inserted, skipped}`
-- Truyện đã tồn tại + thêm chương mới: `{..., note: "novel_resumed", inserted: N}`
+- Tạo mới: `{success, novel_id, slug, inserted, skipped, deleted: 0}`
+- Resume: `{..., note: "novel_resumed", inserted: N, skipped: M}`
+- Replace: `{..., note: "novel_replaced", inserted: N, deleted: M}`
 
 ## Mã nguồn
 
-`import_novel(novel_data, chapters)` → `dict`:
+`import_novel(novel_data, chapters, *, replace_chapters=False)` → `dict`:
 - Raise `RuntimeError` khi: thiếu env, 401, 400, timeout (>120s), network error, JSON invalid.
 - Timeout cố định 120s — chương dài hoặc batch lớn có thể fail. Hạ `--max-chapters` hoặc tăng timeout trong code.
 
 ```python
 from api_client import import_novel
 
-result = import_novel(
-    {"title": "...", "author": "...", "description": "...", ...},
-    [{"number": 1, "title": "Chương 1", "content": "..."}, ...]
-)
-print(result['inserted'])
+# Resume mode (default) — chỉ thêm chapter mới
+result = import_novel(novel_data, chapters)
+
+# Replace mode — sau split/merge, đè toàn bộ chapter pi4
+result = import_novel(novel_data, chapters, replace_chapters=True)
+print(result['deleted'], result['inserted'])
 ```
 
 ## Troubleshooting

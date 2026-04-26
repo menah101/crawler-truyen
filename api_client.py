@@ -10,16 +10,19 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def import_novel(novel_data: dict, chapters: list) -> dict:
+def import_novel(novel_data: dict, chapters: list, *, replace_chapters: bool = False) -> dict:
     """
     POST novel + chapters tới /api/admin/import.
 
     Args:
         novel_data: dict với các key: title, author, description, genres, tags, status, cover_image
         chapters:   list of dict với các key: number, title, content
+        replace_chapters: True → DELETE all chapters của novel trước khi INSERT
+                          (dùng sau khi split/merge ở local). False → resume mode (skip
+                          chapter trùng number, chỉ thêm chapter mới).
 
     Returns:
-        dict: { success, novel_id, slug, inserted, skipped, note? }
+        dict: { success, novel_id, slug, inserted, skipped, deleted, note? }
 
     Raises:
         RuntimeError: nếu xác thực thất bại hoặc lỗi mạng/server
@@ -39,7 +42,11 @@ def import_novel(novel_data: dict, chapters: list) -> dict:
         raise RuntimeError("❌ API_SECRET chưa được cấu hình trong config.py")
 
     endpoint = f"{API_BASE_URL.rstrip('/')}/api/admin/import"
-    payload  = {"novel": novel_data, "chapters": chapters}
+    payload  = {
+        "novel": novel_data,
+        "chapters": chapters,
+        "replace_chapters": replace_chapters,
+    }
 
     logger.debug(f"   → POST {endpoint}  ({len(chapters)} chương)")
 
