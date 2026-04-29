@@ -77,6 +77,10 @@ if [ -f "$LOCAL_DB" ]; then
   mv "$LOCAL_DB" "$LOCAL_DB.prev"
   log "Backup local cũ → $LOCAL_DB.prev"
 fi
+# Xoá WAL/SHM cũ — nếu giữ lại, SQLite sẽ apply WAL của DB cũ lên DB
+# mới → page corruption ("database disk image is malformed"). Xem
+# docs/DB_PULL_FROM_PI.md mục "Cạm bẫy quan trọng".
+rm -f "$LOCAL_DB-wal" "$LOCAL_DB-shm"
 scp "$PI4_HOST:$PI4_TMP" "$LOCAL_DB"
 ok "Snapshot về local thành công"
 

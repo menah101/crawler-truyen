@@ -83,7 +83,7 @@ hook_story.txt  →  hook_story.female.mp3
 | Flag | Mặc định | Ý nghĩa |
 |---|---|---|
 | `--voice {female,male}` | `female` | Chọn giọng |
-| `--rate <pct>` | `-5%` | Tốc độ. Âm = chậm hơn, dương = nhanh hơn. VD `-10%`, `+5%` |
+| `--rate <pct>` | `+0%` | Tốc độ. Âm = chậm hơn, dương = nhanh hơn. VD `-10%`, `+5%`. **Lưu ý**: Edge TTS đang reject rate âm intermittent — script tự retry x3, vẫn fail thì giữ `+0%` an toàn nhất |
 | `--list` | — | Liệt kê novel có sẵn rồi thoát |
 
 ## Định dạng chapter hỗ trợ
@@ -123,19 +123,28 @@ Nếu cần tăng tốc: chạy song song nhiều process trên các novel khác
 ## Workflow đề xuất
 
 1. Crawl truyện như thường lệ → có `chapters/*.json`.
-2. Sinh audio cả 2 voice cho user chọn:
+2. Push novel + chapter lên pi4 (cần có chapter trên pi4 trước khi attach audio):
+   ```bash
+   python push_to_pi4.py --slug <slug>
+   ```
+3. Sinh audio voice mặc định (hoặc cả 2 voice cho user chọn):
    ```bash
    python tts_generator.py <slug> --voice female
-   python tts_generator.py <slug> --voice male
+   python tts_generator.py <slug> --voice male  # optional
    ```
-3. Upload `audio/<voice>/*.mp3` lên S3 (tích hợp với hệ thống upload chapter audio đã có ở [`api_client.py`](api_client.py)).
-4. Web frontend chọn voice nghe (hoặc cho user toggle).
+4. Đẩy MP3 lên pi4 (S3 + update Chapter.audioUrl):
+   ```bash
+   python push_audio_to_pi4.py --slug <slug> --voice female
+   ```
+   Chi tiết xem [push_audio.md](push_audio.md).
 
 ## Troubleshooting
 
 **"❌ edge-tts fail: No audio was received"** → text rỗng hoặc chứa ký tự lạ. Kiểm tra chapter JSON.
 
 **MP3 nghe vỡ tiếng / ngắt nửa chừng** → text quá dài (~50k+ chars trong 1 call). Edge TTS có thể fail với input cực dài. Giải pháp: chia chương nhỏ hơn ở khâu crawl.
+
+**`No audio was received` lặp lại nhiều chương dù `+0%` rate** → Edge TTS server-side flaky theo giờ. Script tự retry 3 lần (`TTS_RETRIES`). Nếu vẫn fail nhiều, thử lại sau 30-60 phút hoặc đổi `--voice male`. Tránh dùng `--rate` âm — server hay reject.
 
 **Voice nói sai từ Hán Việt** → Edge TTS dựa trên Microsoft model, đôi khi đọc sai tên riêng Trung Quốc. Có thể "hint" bằng cách sửa lại trong content (vd "Giang Dật Phong" → "Giang Dật Phong" — viết tách rõ).
 

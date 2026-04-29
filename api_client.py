@@ -83,3 +83,68 @@ def import_novel(novel_data: dict, chapters: list, *, replace_chapters: bool = F
         return resp.json()
     except json.JSONDecodeError:
         raise RuntimeError(f"❌ Server trả về JSON không hợp lệ: {resp.text[:200]}")
+
+
+def upload_chapter_audio(slug: str, chapter_number: int, mp3_path) -> dict:
+    """
+    POST file MP3 lên /api/admin/upload-audio (auth bằng X-Import-Secret).
+    Pi4 sẽ upload S3 + update Chapter.audioUrl/audioDuration.
+
+    Args:
+        slug:           novel slug
+        chapter_number: số chương (int dương)
+        mp3_path:       path tới file .mp3
+
+    Returns:
+        dict: { success, chapterId, slug, chapterNumber, url, duration }
+
+    Raises:
+        FileNotFoundError: file MP3 không tồn tại
+        RuntimeError:      auth/network/server lỗi
+    """
+    try:
+        import requests
+    except ImportError:
+        raise RuntimeError("❌ Thiếu thư viện 'requests'. Chạy: pip install requests")
+
+    from pathlib import Path
+    from config import API_BASE_URL, API_SECRET
+
+    if not API_BASE_URL:
+        raise RuntimeError("❌ API_BASE_URL chưa được cấu hình")
+    if not API_SECRET:
+        raise RuntimeError("❌ API_SECRET chưa được cấu hình")
+
+    p = Path(mp3_path)
+    if not p.is_file():
+        raise FileNotFoundError(f"Không tìm thấy MP3: {p}")
+
+    endpoint = f"{API_BASE_URL.rstrip('/')}/api/admin/upload-audio"
+
+    with p.open("rb") as f:
+        files = {"file": (p.name, f, "audio/mpeg")}
+        data  = {"slug": slug, "chapterNumber": str(chapter_number)}
+        try:
+            resp = requests.post(
+                endpoint, files=files, data=data,
+                headers={"X-Import-Secret": API_SECRET},
+                timeout=180,
+            )
+        except requests.exceptions.ConnectionError as exc:
+            raise RuntimeError(f"❌ Không kết nối được tới {endpoint}\n   {exc}") from exc
+        except requests.exceptions.Timeout:
+            raise RuntimeError(f"❌ Timeout upload {p.name} (>180s)")
+
+    if resp.status_code == 401:
+        raise RuntimeError("❌ 401 — kiểm tra IMPORT_SECRET ở local + .env trên pi4")
+    if resp.status_code == 404:
+        raise RuntimeError(f"❌ 404 — {resp.text[:200]}")
+    if resp.status_code in (400, 413, 415):
+        raise RuntimeError(f"❌ {resp.status_code} — {resp.text[:200]}")
+    if not resp.ok:
+        raise RuntimeError(f"❌ Lỗi {resp.status_code}: {resp.text[:300]}")
+
+    try:
+        return resp.json()
+    except json.JSONDecodeError:
+        raise RuntimeError(f"❌ JSON không hợp lệ: {resp.text[:200]}")

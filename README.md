@@ -35,6 +35,7 @@ Công cụ tự động tải truyện, viết lại bằng AI, và tạo nội 
 | [Chapter Merger](docs/chapter_merger.md) | Gộp chương ngắn (< 300 từ) vào chương kế trước/sau | `chapter_merger.py` |
 | [API Client](docs/api_client.md) | POST truyện mới lên pi4 (`IMPORT_MODE="api"`) | `api_client.py`, `/api/admin/import` |
 | [TTS Generator](docs/tts.md) | Edge TTS — chuyển chapters thành MP3 | `tts_generator.py` |
+| [Push Audio](docs/push_audio.md) | Đẩy MP3 chương từ docx_output/ → pi4 (S3 + Chapter.audioUrl) | `push_audio_to_pi4.py`, `/api/admin/upload-audio` |
 | [Quy trình A-Z](docs/quy_trinh_a_z.md) | Playbook tổng từ crawl → wrap → sync pi4 | `run.py`, `workflow_full.sh` |
 | [Daily Pipeline](docs/daily_pipeline.md) | Crawl 5 truyện/ngày từ JSON + wrap + sync pi4 (cron-friendly) | `daily_pipeline.sh`, `push_to_pi4.py` |
 
@@ -218,6 +219,7 @@ python organize.py --apply
 | `daily_pipeline.sh` | Orchestrator crawl 5 truyện/ngày + sync pi4 | [Daily Pipeline](docs/daily_pipeline.md) |
 | `wrapper_sync.py` | Push wrapper local → pi4 qua HTTP | [Wrapper Sync](docs/wrapper_sync.md) |
 | `tts_generator.py` | Edge TTS chapters → MP3 | [TTS](docs/tts.md) |
+| `push_audio_to_pi4.py` | Đẩy MP3 chương từ docx_output/ → pi4 (S3 + DB) | [Push Audio](docs/push_audio.md) |
 | `api_client.py` | POST novel mới lên pi4 (IMPORT_MODE='api') | [API Client](docs/api_client.md) |
 | `srt_exporter.py` | Chuyển DOCX → phụ đề SRT | [Video](docs/merge_video.md) |
 | `translator.py` | Dịch Anh → Việt (chỉ dùng cho `sources/webnovel.py`) | — |

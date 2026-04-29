@@ -43,8 +43,10 @@ VOICES = {
     "male":   "vi-VN-NamMinhNeural",
 }
 
-DEFAULT_RATE = "-5%"          # hơi chậm — dễ nghe cho storytelling
+DEFAULT_RATE = "+0%"          # MS Edge đang reject rate âm intermittent → giữ ở 0
 MIN_MP3_BYTES = 1024          # dưới 1KB coi như file hỏng → regenerate
+TTS_RETRIES   = 3             # retry NoAudioReceived (Edge TTS hay flaky)
+TTS_RETRY_DELAY = 1.5         # giây giữa các lần retry
 
 
 def _clean_text(raw: str) -> str:
@@ -77,15 +79,30 @@ def _build_chapter_text(ch: dict) -> str:
 
 
 async def _tts_to_file(text: str, voice: str, rate: str, out_path: Path) -> bool:
-    """Gọi edge-tts, lưu ra MP3. Trả True nếu file > MIN_MP3_BYTES."""
+    """Gọi edge-tts, lưu ra MP3. Trả True nếu file > MIN_MP3_BYTES.
+
+    Retry tối đa TTS_RETRIES lần khi NoAudioReceived (Edge TTS hay flaky,
+    đặc biệt với rate âm — server đôi khi reject ngẫu nhiên).
+    """
     tmp_path = out_path.with_suffix(".mp3.part")
-    try:
-        comm = edge_tts.Communicate(text, voice, rate=rate)
-        await comm.save(str(tmp_path))
-    except Exception as e:
-        logger.error(f"  ❌ edge-tts fail: {e}")
-        if tmp_path.exists():
-            tmp_path.unlink()
+
+    last_err: Exception | None = None
+    for attempt in range(1, TTS_RETRIES + 1):
+        try:
+            comm = edge_tts.Communicate(text, voice, rate=rate)
+            await comm.save(str(tmp_path))
+            last_err = None
+            break
+        except Exception as e:
+            last_err = e
+            if tmp_path.exists():
+                tmp_path.unlink()
+            if attempt < TTS_RETRIES:
+                logger.warning(f"  ⏳ attempt {attempt}/{TTS_RETRIES} fail ({str(e)[:60]}) — retry sau {TTS_RETRY_DELAY}s")
+                await asyncio.sleep(TTS_RETRY_DELAY)
+
+    if last_err is not None:
+        logger.error(f"  ❌ edge-tts fail (sau {TTS_RETRIES} lần): {last_err}")
         return False
 
     if not tmp_path.exists() or tmp_path.stat().st_size < MIN_MP3_BYTES:

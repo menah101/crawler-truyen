@@ -89,6 +89,20 @@ cd crawler
 │  4b. python run.py --sync-wrappers               │
 │      → POST /api/admin/wrappers (update 6 cột)   │
 └──────────────────────────────────────────────────┘
+                       ↓
+┌──────────────────────────────────────────────────┐
+│  BƯỚC 5 — TTS + AUDIO (tùy chọn, chậm)           │
+│                                                  │
+│  5a. for SLUG in crawled_slugs:                  │
+│        python tts_generator.py "$SLUG" --voice female  │
+│      # → docx_output/<date>/<slug>/audio/female/ │
+│                                                  │
+│  5b. python push_audio_to_pi4.py --date <today>  │
+│      → POST /api/admin/upload-audio (S3 + DB)    │
+│                                                  │
+│  Tách khỏi pipeline mặc định vì TTS chậm         │
+│  (~30-60s/chương). Xem push_audio.md.            │
+└──────────────────────────────────────────────────┘
 ```
 
 ## `push_to_pi4.py` — utility riêng
@@ -243,4 +257,6 @@ python push_to_pi4.py --all --replace
 - [novel_wrapper.md](novel_wrapper.md) — wrap §2
 - [wrapper_sync.md](wrapper_sync.md) — push wrapper local → pi4
 - [api_client.md](api_client.md) — endpoint `/api/admin/import`
+- [tts.md](tts.md) — sinh MP3 chương bằng Edge TTS
+- [push_audio.md](push_audio.md) — đẩy MP3 chương lên pi4
 - [audit.md](audit.md) — kiểm tra content nguy cơ AdSense
