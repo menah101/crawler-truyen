@@ -22,6 +22,25 @@ Tự động hoá quy trình **1 ngày**: đọc list URL từ JSON → crawl 5 
 
 Tên file = ngày crawl. Khi không truyền `--json`, script tự dùng `data_crawler/$(date +%Y-%m-%d).json`.
 
+## 2 cách chạy
+
+**A. All-in-one** — crawl + wrap + push pi4 trong 1 lệnh (dùng khi tin tưởng output, hoặc cron đêm):
+
+```bash
+./daily_pipeline.sh --yes
+```
+
+**B. Tách giai đoạn** — local-only trước, admin review tay, push prod sau (dùng khi muốn check nội dung trước khi lên site thật):
+
+```bash
+./daily_pipeline.sh --skip-sync                          # 1. crawl + wrap, KHÔNG push pi4
+python tts_generator.py <slug> --voice female            # 2. TTS từng slug (tùy chọn)
+# 3. admin review ở http://localhost:3000
+./deploy_to_prod.sh                                      # 4. 1 lệnh: push novel + wrap + audio lên prod
+```
+
+`deploy_to_prod.sh` prefix env (`IMPORT_MODE=api`, `API_BASE_URL=https://hongtrantruyen.net`, `IMPORT_SECRET`) inline qua shell — KHÔNG sửa `crawler/.env`. Vì `python-dotenv` mặc định không override env đã set, `.env` vẫn giữ `IMPORT_MODE=local` cho lần dev sau. Chạy `./deploy_to_prod.sh --help` để xem flags đầy đủ.
+
 ## Cách chạy
 
 ```bash
@@ -260,3 +279,4 @@ python push_to_pi4.py --all --replace
 - [tts.md](tts.md) — sinh MP3 chương bằng Edge TTS
 - [push_audio.md](push_audio.md) — đẩy MP3 chương lên pi4
 - [audit.md](audit.md) — kiểm tra content nguy cơ AdSense
+- [`deploy_to_prod.sh`](../deploy_to_prod.sh) — script đẩy local → prod cho workflow tách giai đoạn (`./deploy_to_prod.sh --help`)
