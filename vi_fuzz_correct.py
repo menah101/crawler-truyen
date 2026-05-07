@@ -35,13 +35,16 @@ except ImportError:
     _RAPIDFUZZ_OK = False
 
 try:
-    from vi_validator import is_valid_syllable, _strip_tones  # type: ignore
+    from vi_validator import is_valid_syllable, _strip_tones, _ONSETS  # type: ignore
 except ImportError:
-    from .vi_validator import is_valid_syllable, _strip_tones  # type: ignore
+    from .vi_validator import is_valid_syllable, _strip_tones, _ONSETS  # type: ignore
 
 
 # ─── Tham số tuning ────────────────────────────────────────────
-_MAX_EDIT_DISTANCE = 2     # AI corruption hiếm > 2 ký tự lệch
+# ED=1 ONLY: trên thực tế ED=2 generate quá nhiều false positive
+# (vd 'chuyếàng'→'chuyến' nhưng đúng là 'chuyện', 'cửại'→'chửi' đúng là 'cửa').
+# Nhường ED=2 cho PhoBERT/LLM có context.
+_MAX_EDIT_DISTANCE = 1
 _MIN_RATIO = 75            # rapidfuzz fuzz.ratio (0-100)
 _TOP_K = 8                 # over-fetch trước khi lọc
 _MIN_LEN_FOR_FUZZ = 3      # 1-2 ký tự dễ collision (vd "à" → mọi vowel)
@@ -68,10 +71,33 @@ def _load_dict_list() -> list[str]:
     return _DICT_LIST
 
 
-def _onset_base(word: str) -> str:
-    """Lấy ký tự đầu sau khi strip dấu thanh — heuristic để cùng onset."""
+def _extract_onset(word: str) -> str:
+    """
+    Trích ONSET đầy đủ ('b', 'ch', 'ngh', 'gi'...) sau khi strip dấu thanh.
+    Quan trọng: phân biệt 'c' vs 'ch', 'n' vs 'ng' vs 'ngh', 't' vs 'th' vs 'tr'.
+
+    Match theo độ dài giảm dần (giống vi_validator._is_valid_syllable):
+    'ngh'  → 'ngh'
+    'ng'   → 'ng'
+    'nh'   → 'nh'
+    'tr'   → 'tr'
+    'th'   → 'th'
+    'ch'   → 'ch'
+    'kh'   → 'kh'
+    'gh'   → 'gh'
+    'gi'   → 'gi'
+    'ph'   → 'ph'
+    'qu'   → 'qu'
+    'b/c/d/đ/g/h/k/l/m/n/p/r/s/t/v/x' → đơn
+    Còn lại → ''
+    """
     base, _ = _strip_tones(word)
-    return base[0] if base else ""
+    if not base:
+        return ""
+    for onset in _ONSETS:
+        if onset and base.startswith(onset):
+            return onset
+    return ""
 
 
 def _candidates_for(word: str, dictionary: list[str]) -> list[tuple[str, float, int]]:
@@ -80,11 +106,11 @@ def _candidates_for(word: str, dictionary: list[str]) -> list[tuple[str, float, 
     Đã filter:
       - ratio ≥ _MIN_RATIO
       - edit distance ≤ _MAX_EDIT_DISTANCE
-      - cùng onset base (sau strip tone) — corruption hiếm khi đổi phụ âm đầu
+      - cùng ONSET đầy đủ (b/ch/ngh/...) — phân biệt 'c' vs 'ch', 'n' vs 'ng'
     """
-    word_first = _onset_base(word)
-    if not word_first:
-        return []
+    word_onset = _extract_onset(word)
+    # Cho phép word có onset rỗng (vần thuần như 'an', 'ơi', 'ôên')
+    # nhưng candidates cũng phải onset rỗng — không match across onset class.
 
     raw = process.extract(
         word,
@@ -99,7 +125,7 @@ def _candidates_for(word: str, dictionary: list[str]) -> list[tuple[str, float, 
         ed = DamerauLevenshtein.distance(word, cand)
         if ed > _MAX_EDIT_DISTANCE:
             continue
-        if _onset_base(cand) != word_first:
+        if _extract_onset(cand) != word_onset:
             continue
         out.append((cand, score, ed))
 
