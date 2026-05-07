@@ -20,6 +20,22 @@ except ImportError:
     from crawler.vi_validator import process_text as _vi_process_text  # type: ignore
 
 try:
+    from vi_fuzz_correct import correct_residuals_fuzz as _vi_fuzz_correct
+except ImportError:
+    try:
+        from crawler.vi_fuzz_correct import correct_residuals_fuzz as _vi_fuzz_correct  # type: ignore
+    except ImportError:
+        _vi_fuzz_correct = None  # type: ignore
+
+try:
+    from vi_phobert_correct import correct_residuals_phobert as _vi_phobert_correct
+except ImportError:
+    try:
+        from crawler.vi_phobert_correct import correct_residuals_phobert as _vi_phobert_correct  # type: ignore
+    except ImportError:
+        _vi_phobert_correct = None  # type: ignore
+
+try:
     from vi_llm_correct import correct_residuals_llm as _vi_llm_correct
 except ImportError:
     try:
@@ -518,17 +534,46 @@ def _fix_common_typos(text: str) -> str:
             len(stats.uncorrectable), sample,
         )
 
-        # 0bis. LLM narrow-pass: Gemini sửa residuals dựa vào ngữ cảnh câu.
-        # Kiểm soát qua config.VI_LLM_FIX_ENABLED. Fail-safe: lỗi API → skip.
-        if _vi_llm_correct is not None:
-            text, llm_fixes = _vi_llm_correct(text, stats.uncorrectable)
+        # 0bis. Fuzzy dictionary match (rapidfuzz) — tầng giữa, miễn phí, offline.
+        # Sửa các residual có duy nhất 1 dict-match với edit distance ≤ 2.
+        # Phần ambiguous được giữ nguyên cho tầng sau xử lý.
+        residual_after_fuzz = list(stats.uncorrectable)
+        if _vi_fuzz_correct is not None:
+            text, fuzz_fixes = _vi_fuzz_correct(text, stats.uncorrectable)
+            if fuzz_fixes:
+                logger.info(
+                    "vi_fuzz: sửa %d âm tiết bằng dict (ví dụ: %s)",
+                    len(fuzz_fixes), list(fuzz_fixes.items())[:5],
+                )
+                residual_after_fuzz = [
+                    w for w in stats.uncorrectable if w not in fuzz_fixes
+                ]
+
+        # 0ter. PhoBERT MLM re-rank — re-rank top-K fuzz candidates bằng ngữ
+        # cảnh câu. Chỉ chạy khi VI_PHOBERT_FIX_ENABLED=true (mặc định off).
+        residual_after_phobert = residual_after_fuzz
+        if _vi_phobert_correct is not None and residual_after_fuzz:
+            text, phobert_fixes = _vi_phobert_correct(text, residual_after_fuzz)
+            if phobert_fixes:
+                logger.info(
+                    "vi_phobert: sửa %d âm tiết bằng MLM context (ví dụ: %s)",
+                    len(phobert_fixes), list(phobert_fixes.items())[:5],
+                )
+                residual_after_phobert = [
+                    w for w in residual_after_fuzz if w not in phobert_fixes
+                ]
+
+        # 0quater. LLM narrow-pass: Gemini sửa các residual cả fuzz lẫn PhoBERT
+        # không quyết được, dựa trên ngữ cảnh câu.
+        if _vi_llm_correct is not None and residual_after_phobert:
+            text, llm_fixes = _vi_llm_correct(text, residual_after_phobert)
             if llm_fixes:
                 logger.info(
-                    "vi_llm: sửa thêm %d âm tiết bằng Gemini (ví dụ: %s)",
+                    "vi_llm: sửa thêm %d âm tiết bằng LLM (ví dụ: %s)",
                     len(llm_fixes),
                     list(llm_fixes.items())[:5],
                 )
-            still_residual = [w for w in stats.uncorrectable if w not in llm_fixes]
+            still_residual = [w for w in residual_after_phobert if w not in llm_fixes]
             if still_residual:
                 logger.warning(
                     "vi_llm: %d âm tiết vẫn chưa sửa được (ví dụ: %s)",

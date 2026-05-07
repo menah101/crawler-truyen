@@ -71,9 +71,15 @@ GROQ_FALLBACK_MODELS = [
     "llama3-70b-8192",           # fallback thêm
 ]
 
-# === Validator LLM narrow-pass ===
-# Sau khi vi_validator rule-based chạy xong, nếu còn âm tiết không tự sửa
-# được thì gọi Gemini để sửa với ngữ cảnh câu.
+# === Validator pipeline (4 tầng) ===
+# Tầng 1 — vi_validator: rule-based phonotactic + collapse repeats
+# Tầng 2 — vi_fuzz_correct: rapidfuzz vs dictionary 4.7k âm tiết (offline, free)
+# Tầng 3 — vi_phobert_correct: PhoBERT MLM re-rank top-K fuzz candidates theo
+#          ngữ cảnh. Tốn ~540MB model; default OFF — bật khi muốn cắt LLM call.
+# Tầng 4 — vi_llm_correct: Gemini → fallback Anthropic Haiku (context-aware)
+VI_FUZZ_FIX_ENABLED = os.environ.get("VI_FUZZ_FIX_ENABLED", "true").lower() == "true"
+VI_PHOBERT_FIX_ENABLED = os.environ.get("VI_PHOBERT_FIX_ENABLED", "false").lower() == "true"
+
 VI_LLM_FIX_ENABLED = os.environ.get("VI_LLM_FIX_ENABLED", "true").lower() == "true"
 VI_LLM_FIX_MODEL = "gemini-2.5-flash"
 VI_LLM_FIX_MAX_CHARS = 8000   # cắt text gửi LLM để tiết kiệm token
