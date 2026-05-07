@@ -15,13 +15,14 @@ from .saytruyen import SayTruyen
 from .truyenfullvision import TruyenFullVision
 from .tvtruyen import TvTruyen
 from .hongtruyenhot import HongTruyenHot
+from .comong import ComOng
 
 # Kept to satisfy linters — classes are used via registry
 __all__ = [
     'registry', 'SOURCES', 'get_source', 'get_source_for_url',
     'YeunGoNTinh', 'TruyenFull', 'MeTruyenCV', 'TvTruyen',
     'MonkeyD', 'VivuTruyen', 'SayTruyen', 'TruyenFullVision',
-    'HongTruyenHot',
+    'HongTruyenHot', 'ComOng',
 ]
 
 # Build SOURCES dict từ registry (không trùng lặp, theo name)
