@@ -23,6 +23,7 @@ Stats dùng để:
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from functools import lru_cache
 
@@ -470,6 +471,9 @@ def process_text(text: str) -> tuple[str, ValidationStats]:
     Validate + auto-correct âm tiết hỏng trong text.
     Trả (corrected_text, stats).
     """
+    # Normalize NFC: input có thể đến ở dạng decomposed (NFD) từ web crawl,
+    # khi đó range `À-ỹ` không bắt được combining marks → validator silent skip.
+    text = unicodedata.normalize("NFC", text)
     stats = ValidationStats()
 
     def replace(match: re.Match[str]) -> str:
@@ -498,6 +502,7 @@ def process_text(text: str) -> tuple[str, ValidationStats]:
 
 def validate_text(text: str) -> ValidationStats:
     """Chỉ validate (không sửa). Trả stats để pipeline quyết định retry."""
+    text = unicodedata.normalize("NFC", text)
     stats = ValidationStats()
     for match in _WORD_RE.finditer(text):
         word = match.group(0)

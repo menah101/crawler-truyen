@@ -107,7 +107,7 @@ def clean_text(text: str) -> str:
     text = re.sub(rf'(\b[{VIETNAMESE_CHARS}]+\.[{VIETNAMESE_CHARS}\.]+\b)', remove_dots_in_word, text)
 
     # Xóa "***g"
-    text = re.sub(r'\s*\*{{3}}g\s*', ' ', text)
+    text = re.sub(r'\s*\*{3}g\s*', ' ', text)
 
     # Xóa Mathematical Alphanumeric Symbols và Emoji
     text = re.sub(r'[\U0001D400-\U0001D7FF]', '', text)

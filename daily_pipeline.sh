@@ -79,8 +79,13 @@ elif [ -f "$SCRIPT_DIR/venv/bin/activate" ]; then
 fi
 
 # ── In kế hoạch ─────────────────────────────────────────────────────
-URLS=$(jq -r '.stories[].url' "$JSON_FILE")
-N_URLS=$(echo "$URLS" | grep -c . || echo 0)
+# Dùng mapfile để load URLs vào array — tránh word-splitting trên `for URL in $URLS`
+# (URL có ký tự glob hoặc space sẽ vỡ không quote được).
+URLS=()
+while IFS= read -r line; do
+  [[ -n "$line" ]] && URLS+=("$line")
+done < <(jq -r '.stories[].url' "$JSON_FILE")
+N_URLS=${#URLS[@]}
 
 log "KẾ HOẠCH"
 printf "  JSON:           %s\n" "$JSON_FILE"
@@ -106,16 +111,16 @@ CRAWL_FAIL=()
 SLUGS=()
 
 slug_from_db_by_url() {
-  # Tìm slug trong DB theo sourceUrl (dạng đã trim trailing /)
-  local url="${1%/}"
-  sqlite3 "$DB_PATH" "SELECT slug FROM Novel WHERE sourceUrl = '$url' LIMIT 1;"
+  # Tìm slug trong DB theo sourceUrl. Gọi Python helper với parameter binding
+  # — KHÔNG interpolate URL vào shell SQL (URL chứa `'` hoặc `;` sẽ inject).
+  DB_PATH="$DB_PATH" python3 "$SCRIPT_DIR/tools/slug_from_url.py" "$1"
 }
 
 # ── Bước 1: Crawl ───────────────────────────────────────────────────
 if [ $SKIP_CRAWL -eq 0 ]; then
   log "BƯỚC 1 — CRAWL ${N_URLS} TRUYỆN"
   i=0
-  for URL in $URLS; do
+  for URL in "${URLS[@]}"; do
     i=$((i+1))
     info "[${i}/${N_URLS}] $URL"
 
@@ -158,7 +163,7 @@ if [ $SKIP_CRAWL -eq 0 ]; then
 else
   log "BƯỚC 1 — CRAWL (BỎ)"
   # Lấy slug từ JSON URLs (best-effort) để wrap/sync
-  for URL in $URLS; do
+  for URL in "${URLS[@]}"; do
     SLUG=$(slug_from_db_by_url "$URL" || true)
     [ -n "$SLUG" ] && SLUGS+=("$SLUG")
   done

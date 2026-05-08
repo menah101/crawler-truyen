@@ -148,18 +148,17 @@ def _sentence_to_image_inline(
     if seed is not None:
         params["seed"] = seed
 
-    try:
-        resp = requests.post(
-            API_URL, headers=headers,
-            json={"inputs": prompt, "parameters": params},
-            timeout=120,
-        )
-        if resp.status_code != 200:
-            raise Exception(f"HTTP {resp.status_code}")
-        return Image.open(io.BytesIO(resp.content)), prompt
-    except Exception as e:
-        img = Image.new("RGB", (width, height), color=(13, 13, 26))
-        return img, prompt
+    # KHÔNG fallback ra ảnh placeholder navy ở đây — caller dùng os.path.exists
+    # để skip resume. Nếu lưu placeholder, lần chạy sau bỏ qua → mất hẳn cảnh.
+    # Để exception bubble lên → caller sẽ skip scene và scenes.json đánh dấu image="".
+    resp = requests.post(
+        API_URL, headers=headers,
+        json={"inputs": prompt, "parameters": params},
+        timeout=120,
+    )
+    if resp.status_code != 200:
+        raise RuntimeError(f"HF inline fallback HTTP {resp.status_code}: {resp.text[:200]}")
+    return Image.open(io.BytesIO(resp.content)), prompt
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -213,13 +212,14 @@ def run_shorts_pipeline(
     if character_desc:
         logger.info(f"  👤 {char_name}: {character_desc[:80]}")
 
-    # Lưu hook story
+    # Lưu hook story (atomic — tránh half-written nếu crash giữa write)
+    from _io_utils import atomic_write_text
     hook_path = os.path.join(output_dir, "hook_story.txt")
-    with open(hook_path, "w", encoding="utf-8") as f:
-        f.write(f"# {title}\n\n")
-        if character_desc:
-            f.write(f"[Nhân vật chính: {char_name} — {character_desc}]\n\n")
-        f.write(hook_story)
+    parts = [f"# {title}\n\n"]
+    if character_desc:
+        parts.append(f"[Nhân vật chính: {char_name} — {character_desc}]\n\n")
+    parts.append(hook_story)
+    atomic_write_text(hook_path, "".join(parts))
     logger.info(f"  ✅ Đã lưu: {hook_path}")
 
     # ── Bước 2: Tạo ảnh cho từng scene ─────────────────────────
@@ -273,7 +273,8 @@ def run_shorts_pipeline(
                         shot_type=shot_type,
                         scene_index=sc_num - 1,
                     )
-                    image.save(img_path, "JPEG", quality=92)
+                    from _io_utils import atomic_save_pil
+                    atomic_save_pil(image, img_path, format="JPEG", quality=92)
                     logger.info(f"  ✅ Scene {sc_num} [{emotion}|{shot_type}]: {img_name}")
                 except Exception as e:
                     logger.error(f"  ❌ Scene {sc_num} lỗi: {e}")
@@ -295,8 +296,8 @@ def run_shorts_pipeline(
         "hook_story": hook_story,
         "scenes":     scenes_data,
     }
-    with open(scenes_path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
+    from _io_utils import atomic_write_text
+    atomic_write_text(scenes_path, json.dumps(payload, ensure_ascii=False, indent=2))
     logger.info(f"  ✅ Đã lưu: {scenes_path}")
 
     return {

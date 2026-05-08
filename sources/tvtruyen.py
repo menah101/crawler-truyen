@@ -37,7 +37,7 @@ class TvTruyen(BaseSource):
                 if full in seen:
                     continue
                 seen.add(full)
-                title_tag = a.find_parent('.comic-card')
+                title_tag = a.find_parent(class_='comic-card')
                 title = ''
                 if title_tag:
                     t = title_tag.select_one('h3[itemprop="name"]')

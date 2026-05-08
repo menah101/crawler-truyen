@@ -7,6 +7,7 @@ import re
 import time
 import random
 import logging
+import unicodedata
 
 try:
     from vi_validator import validate_text as _vi_validate_text
@@ -211,7 +212,7 @@ def rewrite_gemini(text, api_key, model, temperature=0.8):
 
         if resp.status_code != 200:
             logger.error(f"    ❌ Gemini {m}: {resp.status_code}")
-            return None
+            continue
 
         try:
             parts = resp.json()["candidates"][0]["content"]["parts"]
@@ -220,10 +221,11 @@ def rewrite_gemini(text, api_key, model, temperature=0.8):
                 if m != model:
                     logger.info(f"    🔄 Dùng {m} thay {model}")
                 return result
-        except (KeyError, IndexError, TypeError, ValueError):
-            return None
+        except (KeyError, IndexError, TypeError, ValueError) as e:
+            logger.error(f"    ❌ Gemini {m} parse fail: {e}")
+            continue
 
-    logger.warning(f"    ⚠️ Tất cả Gemini model hết quota")
+    logger.warning(f"    ⚠️ Tất cả Gemini model hết quota / parse fail")
     return None
 
 
@@ -907,6 +909,10 @@ def rewrite_chapter(content, novel_title=""):  # noqa: ARG001
 
     if not REWRITE_ENABLED or not content or len(content) < 100:
         return split_paragraphs(content)
+
+    # Normalize NFC ngay đầu pipeline — tránh input NFD (decomposed) bypass
+    # validator/regex sau này (range `À-ỹ` không bắt được combining marks).
+    content = unicodedata.normalize("NFC", content)
 
     provider = REWRITE_PROVIDER.lower()
     logger.info(f"    ✍️ Rewrite ({provider})...")

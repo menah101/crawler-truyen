@@ -60,12 +60,12 @@ def _analyze_colors(img, width, height):
         dict với keys: text_color, shadow_color, bg_color, accent_color, gradient_strength
     """
     # Crop vùng nửa dưới — nơi text sẽ hiển thị
+    # Resize xuống 128×72 trước khi analyze: avg color không cần độ phân giải gốc;
+    # tránh load 460k tuple Python khi ảnh là 1280×720.
     text_region = img.crop((0, height // 2, width, height)).convert("RGB")
-    pixels = list(text_region.tobytes())
-    # Rebuild as (R,G,B) tuples
-    pixels = [(pixels[i], pixels[i+1], pixels[i+2]) for i in range(0, len(pixels), 3)]
+    text_region = text_region.resize((128, max(1, text_region.height * 128 // max(1, text_region.width))))
+    pixels = list(text_region.getdata())  # list[(r,g,b)]
 
-    # Tính trung bình R, G, B
     n = len(pixels)
     avg_r = sum(p[0] for p in pixels) / n
     avg_g = sum(p[1] for p in pixels) / n
@@ -77,8 +77,8 @@ def _analyze_colors(img, width, height):
     # Dominant hue từ HSV
     h, s, v = rgb_to_hsv(avg_r / 255, avg_g / 255, avg_b / 255)
 
-    # Saturation trung bình (ảnh xám vs ảnh nhiều màu)
-    saturations = [rgb_to_hsv(p[0] / 255, p[1] / 255, p[2] / 255)[1] for p in pixels[::50]]
+    # Saturation trung bình — đã resize nhỏ nên duyệt hết, không cần stride.
+    saturations = [rgb_to_hsv(p[0] / 255, p[1] / 255, p[2] / 255)[1] for p in pixels]
     avg_sat = sum(saturations) / len(saturations)
 
     logger.info(f"  Phân tích ảnh: brightness={brightness:.2f}, hue={h:.2f}, sat={avg_sat:.2f}")

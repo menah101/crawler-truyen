@@ -1,0 +1,426 @@
+{
+  "name": "Hong Tran Truyen — All Socials Publisher",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "publish-novel",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 600],
+      "webhookId": "publish-novel"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Payload từ social_watcher.py:\n// { slug, title, description, url, cover_url, hashtags: [...] }\n\n// === CONFIG: ID phi-secret cho từng platform — sửa thẳng tại đây ===\n// Token/secret thật (Telegram bot token, Discord webhook URL, Twitter OAuth,\n// FB Page Token, Pinterest Bearer) quản lý ở Credentials tab của n8n UI,\n// KHÔNG để ở đây.\nconst CFG = {\n  TELEGRAM_CHAT_ID:   '',  // vd: '-1001234567890' (channel/supergroup → âm)\n  FB_PAGE_ID:         '',  // vd: '123456789012345'\n  IG_USER_ID:         '',  // vd: '17841400000000000'\n  PINTEREST_BOARD_ID: '',  // vd: '1234567890123456789'\n  FB_GROUP_ID:        '',  // vd: '111222333444555'\n  PUPPETEER_URL:      'http://localhost:3001',\n};\n\nconst p = $input.first().json.body || $input.first().json;\nconst tags = (p.hashtags || []).join(' ');\nconst desc = p.description || '';\nconst captionLong = `📖 Truyện mới: ${p.title}\\n\\n${desc}\\n\\n👉 ${p.url}\\n${tags}`;\nconst tweet = `${p.title}\\n${p.url}\\n${tags}`.slice(0, 270);\nconst igCaption = `${p.title}\\n\\n${desc}\\n\\n🔗 Link ở bio\\n${tags}`.slice(0, 2200);\nreturn { json: {\n  slug: p.slug,\n  title: p.title,\n  description: desc,\n  url: p.url,\n  cover_url: p.cover_url,\n  hashtags: p.hashtags || [],\n  caption_telegram: captionLong.slice(0, 1020),\n  caption_discord:  captionLong.slice(0, 4000),\n  caption_fb:       captionLong,\n  tweet,\n  ig_caption:       igCaption,\n  pin_title:        p.title.slice(0, 100),\n  pin_desc:         desc.slice(0, 800),\n  cfg:              CFG,\n}};"
+      },
+      "id": "node-format",
+      "name": "Format payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 600]
+    },
+
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "={{ $json.cfg.TELEGRAM_CHAT_ID }}",
+        "binaryData": false,
+        "file": "={{ $json.cover_url }}",
+        "additionalFields": {
+          "caption": "={{ $json.caption_telegram }}",
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "node-telegram",
+      "name": "Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [680, 80],
+      "credentials": {
+        "telegramApi": { "id": "REPLACE_TELEGRAM_CRED_ID", "name": "Telegram bot" }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst err = r.error?.description || r.message || r.error || null;\nreturn { json: {\n  platform: 'telegram',\n  status:   err ? 'failed' : 'ok',\n  message_id: r.result?.message_id,\n  error:    err,\n  posted_at: new Date().toISOString(),\n}};"
+      },
+      "id": "node-telegram-result",
+      "name": "Telegram result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 80]
+    },
+
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "authentication": "webhook",
+        "content": "={{ $json.title }}",
+        "options": {
+          "embeds": {
+            "values": [
+              {
+                "title":       "={{ $json.title }}",
+                "description": "={{ $json.caption_discord }}",
+                "url":         "={{ $json.url }}",
+                "image":       { "url": "={{ $json.cover_url }}" }
+              }
+            ]
+          }
+        }
+      },
+      "id": "node-discord",
+      "name": "Discord",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [680, 220],
+      "credentials": {
+        "discordWebhookApi": { "id": "REPLACE_DISCORD_CRED_ID", "name": "Discord Webhook" }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const err = $input.first().json.error || null;\nreturn { json: {\n  platform: 'discord',\n  status:   err ? 'failed' : 'ok',\n  error:    err?.message || err,\n  posted_at: new Date().toISOString(),\n}};"
+      },
+      "id": "node-discord-result",
+      "name": "Discord result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 220]
+    },
+
+    {
+      "parameters": {
+        "text": "={{ $json.tweet }}",
+        "additionalFields": {}
+      },
+      "id": "node-twitter",
+      "name": "Twitter",
+      "type": "n8n-nodes-base.twitter",
+      "typeVersion": 2,
+      "position": [680, 360],
+      "credentials": {
+        "twitterOAuth1Api": { "id": "REPLACE_TWITTER_CRED_ID", "name": "Twitter OAuth1" }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst err = r.error || null;\nreturn { json: {\n  platform: 'twitter',\n  status:   err ? 'failed' : 'ok',\n  tweet_id: r.id || r.id_str,\n  error:    err?.message || err,\n  posted_at: new Date().toISOString(),\n}};"
+      },
+      "id": "node-twitter-result",
+      "name": "Twitter result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 360]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v19.0/{{ $json.cfg.FB_PAGE_ID }}/photos",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "facebookGraphApi",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "url",       "value": "={{ $json.cover_url }}" },
+            { "name": "caption",   "value": "={{ $json.caption_fb }}" },
+            { "name": "published", "value": "true" }
+          ]
+        },
+        "options": { "timeout": 30000 }
+      },
+      "id": "node-fbpage",
+      "name": "FB Page photo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 500],
+      "credentials": {
+        "facebookGraphApi": { "id": "REPLACE_FB_GRAPH_CRED_ID", "name": "FB Graph (Page Token)" }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst err = r.error || null;\nreturn { json: {\n  platform: 'facebook_page',\n  status:   err ? 'failed' : 'ok',\n  post_id:  r.post_id || r.id,\n  error:    err?.message || err,\n  posted_at: new Date().toISOString(),\n}};"
+      },
+      "id": "node-fbpage-result",
+      "name": "FB Page result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 500]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v19.0/{{ $json.cfg.IG_USER_ID }}/media",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "facebookGraphApi",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "image_url", "value": "={{ $json.cover_url }}" },
+            { "name": "caption",   "value": "={{ $json.ig_caption }}" }
+          ]
+        },
+        "options": { "timeout": 30000 }
+      },
+      "id": "node-ig-create",
+      "name": "IG create container",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 660],
+      "credentials": {
+        "facebookGraphApi": { "id": "REPLACE_FB_GRAPH_CRED_ID", "name": "FB Graph (Page Token)" }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "amount": 8,
+        "unit": "seconds"
+      },
+      "id": "node-ig-wait",
+      "name": "Wait 8s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [860, 660]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v19.0/{{ $json.cfg.IG_USER_ID }}/media_publish",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "facebookGraphApi",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            { "name": "creation_id", "value": "={{ $json.id }}" }
+          ]
+        },
+        "options": { "timeout": 30000 }
+      },
+      "id": "node-ig-publish",
+      "name": "IG publish",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1020, 660],
+      "credentials": {
+        "facebookGraphApi": { "id": "REPLACE_FB_GRAPH_CRED_ID", "name": "FB Graph (Page Token)" }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst err = r.error || null;\nreturn { json: {\n  platform: 'instagram',\n  status:   err ? 'failed' : 'ok',\n  media_id: r.id,\n  error:    err?.message || err,\n  posted_at: new Date().toISOString(),\n}};"
+      },
+      "id": "node-ig-result",
+      "name": "IG result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1180, 660]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.pinterest.com/v5/pins",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ board_id: $json.cfg.PINTEREST_BOARD_ID, title: $json.pin_title, description: $json.pin_desc, link: $json.url, media_source: { source_type: 'image_url', url: $json.cover_url } }) }}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "node-pinterest",
+      "name": "Pinterest pin",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 820],
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_PINTEREST_CRED_ID", "name": "Pinterest Bearer" }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst err = r.error || r.code || null;\nreturn { json: {\n  platform: 'pinterest',\n  status:   err ? 'failed' : 'ok',\n  pin_id:   r.id,\n  error:    err?.message || err,\n  posted_at: new Date().toISOString(),\n}};"
+      },
+      "id": "node-pinterest-result",
+      "name": "Pinterest result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 820]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.cfg.PUPPETEER_URL }}/post-to-fb-group",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={{ JSON.stringify({ group_id: $json.cfg.FB_GROUP_ID, caption: $json.caption_fb, image_url: $json.cover_url, link: $json.url }) }}",
+        "options": { "timeout": 120000 }
+      },
+      "id": "node-fbgroup",
+      "name": "FB Group (puppeteer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 960],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconst err = (!r.ok) ? (r.error || r.message || 'unknown') : null;\nreturn { json: {\n  platform: 'facebook_group',\n  status:   err ? 'failed' : 'ok',\n  error:    err,\n  posted_at: new Date().toISOString(),\n}};"
+      },
+      "id": "node-fbgroup-result",
+      "name": "FB Group result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 960]
+    },
+
+    {
+      "parameters": { "mode": "append", "options": {} },
+      "id": "node-merge1", "name": "Merge 1",
+      "type": "n8n-nodes-base.merge", "typeVersion": 3,
+      "position": [1140, 150]
+    },
+    {
+      "parameters": { "mode": "append", "options": {} },
+      "id": "node-merge2", "name": "Merge 2",
+      "type": "n8n-nodes-base.merge", "typeVersion": 3,
+      "position": [1140, 290]
+    },
+    {
+      "parameters": { "mode": "append", "options": {} },
+      "id": "node-merge3", "name": "Merge 3",
+      "type": "n8n-nodes-base.merge", "typeVersion": 3,
+      "position": [1140, 430]
+    },
+    {
+      "parameters": { "mode": "append", "options": {} },
+      "id": "node-merge4", "name": "Merge 4",
+      "type": "n8n-nodes-base.merge", "typeVersion": 3,
+      "position": [1340, 580]
+    },
+    {
+      "parameters": { "mode": "append", "options": {} },
+      "id": "node-merge5", "name": "Merge 5",
+      "type": "n8n-nodes-base.merge", "typeVersion": 3,
+      "position": [1340, 730]
+    },
+    {
+      "parameters": { "mode": "append", "options": {} },
+      "id": "node-merge6", "name": "Merge 6",
+      "type": "n8n-nodes-base.merge", "typeVersion": 3,
+      "position": [1540, 870]
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Gom 7 result item từ các nhánh merge → object keyed by platform\nconst items = $input.all();\nconst results = {};\nfor (const it of items) {\n  const p = it.json.platform;\n  if (p) results[p] = it.json;\n}\nconst slug = $('Format payload').first().json.slug;\nreturn { json: { ok: true, slug, results } };"
+      },
+      "id": "node-aggregate",
+      "name": "Aggregate results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 870]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "node-respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1980, 870]
+    }
+  ],
+
+  "connections": {
+    "Webhook":         { "main": [[ { "node": "Format payload", "type": "main", "index": 0 } ]] },
+    "Format payload":  { "main": [[
+      { "node": "Telegram",            "type": "main", "index": 0 },
+      { "node": "Discord",             "type": "main", "index": 0 },
+      { "node": "Twitter",             "type": "main", "index": 0 },
+      { "node": "FB Page photo",       "type": "main", "index": 0 },
+      { "node": "IG create container", "type": "main", "index": 0 },
+      { "node": "Pinterest pin",       "type": "main", "index": 0 },
+      { "node": "FB Group (puppeteer)","type": "main", "index": 0 }
+    ]] },
+
+    "Telegram":            { "main": [
+      [ { "node": "Telegram result", "type": "main", "index": 0 } ],
+      [ { "node": "Telegram result", "type": "main", "index": 0 } ]
+    ] },
+    "Discord":             { "main": [
+      [ { "node": "Discord result",  "type": "main", "index": 0 } ],
+      [ { "node": "Discord result",  "type": "main", "index": 0 } ]
+    ] },
+    "Twitter":             { "main": [
+      [ { "node": "Twitter result",  "type": "main", "index": 0 } ],
+      [ { "node": "Twitter result",  "type": "main", "index": 0 } ]
+    ] },
+    "FB Page photo":       { "main": [
+      [ { "node": "FB Page result",  "type": "main", "index": 0 } ],
+      [ { "node": "FB Page result",  "type": "main", "index": 0 } ]
+    ] },
+    "IG create container": { "main": [
+      [ { "node": "Wait 8s",         "type": "main", "index": 0 } ],
+      [ { "node": "IG result",       "type": "main", "index": 0 } ]
+    ] },
+    "Wait 8s":             { "main": [[ { "node": "IG publish", "type": "main", "index": 0 } ]] },
+    "IG publish":          { "main": [
+      [ { "node": "IG result",       "type": "main", "index": 0 } ],
+      [ { "node": "IG result",       "type": "main", "index": 0 } ]
+    ] },
+    "Pinterest pin":       { "main": [
+      [ { "node": "Pinterest result","type": "main", "index": 0 } ],
+      [ { "node": "Pinterest result","type": "main", "index": 0 } ]
+    ] },
+    "FB Group (puppeteer)":{ "main": [
+      [ { "node": "FB Group result", "type": "main", "index": 0 } ],
+      [ { "node": "FB Group result", "type": "main", "index": 0 } ]
+    ] },
+
+    "Telegram result":  { "main": [[ { "node": "Merge 1", "type": "main", "index": 0 } ]] },
+    "Discord result":   { "main": [[ { "node": "Merge 1", "type": "main", "index": 1 } ]] },
+    "Twitter result":   { "main": [[ { "node": "Merge 2", "type": "main", "index": 1 } ]] },
+    "Merge 1":          { "main": [[ { "node": "Merge 2", "type": "main", "index": 0 } ]] },
+    "FB Page result":   { "main": [[ { "node": "Merge 3", "type": "main", "index": 1 } ]] },
+    "Merge 2":          { "main": [[ { "node": "Merge 3", "type": "main", "index": 0 } ]] },
+    "IG result":        { "main": [[ { "node": "Merge 4", "type": "main", "index": 1 } ]] },
+    "Merge 3":          { "main": [[ { "node": "Merge 4", "type": "main", "index": 0 } ]] },
+    "Pinterest result": { "main": [[ { "node": "Merge 5", "type": "main", "index": 1 } ]] },
+    "Merge 4":          { "main": [[ { "node": "Merge 5", "type": "main", "index": 0 } ]] },
+    "FB Group result":  { "main": [[ { "node": "Merge 6", "type": "main", "index": 1 } ]] },
+    "Merge 5":          { "main": [[ { "node": "Merge 6", "type": "main", "index": 0 } ]] },
+
+    "Merge 6":          { "main": [[ { "node": "Aggregate results", "type": "main", "index": 0 } ]] },
+    "Aggregate results":{ "main": [[ { "node": "Respond", "type": "main", "index": 0 } ]] }
+  },
+
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "1",
+  "meta": {
+    "description": "Nhận webhook từ social_watcher, đăng song song lên 7 platform (Telegram, Discord, X, FB Page, IG, Pinterest, FB Group), gom kết quả thành 1 JSON trả về để watcher ghi social_log.json. Ảnh dùng cover_url public, không upload binary."
+  }
+}

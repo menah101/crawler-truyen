@@ -158,17 +158,20 @@ def push_slugs(
 
 def find_recent_slugs(hours: int) -> list:
     """Tìm novels có chapter được tạo trong N giờ qua."""
+    from datetime import datetime, timedelta, timezone
     from db_helper import get_connection
     conn = get_connection()
     try:
-        cutoff_ms = int((time.time() - hours * 3600) * 1000)
+        # Chapter.createdAt được lưu dưới dạng ISO-8601 string ("2025-...Z")
+        # nên cutoff cũng phải là ISO string để so sánh lexicographic đúng.
+        cutoff_iso = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat().replace("+00:00", "") + "Z"
         rows = conn.execute("""
             SELECT DISTINCT n.slug
             FROM Novel n
             JOIN Chapter c ON c.novelId = n.id
             WHERE c.createdAt > ?
             ORDER BY n.slug
-        """, (cutoff_ms,)).fetchall()
+        """, (cutoff_iso,)).fetchall()
         return [r['slug'] for r in rows]
     finally:
         conn.close()

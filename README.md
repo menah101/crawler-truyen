@@ -12,7 +12,6 @@ Công cụ tự động tải truyện, viết lại bằng AI, và tạo nội 
 | [Scraper](docs/scraper.md) | Tải truyện từ nhiều nguồn | `scraper.py`, `run.py` |
 | [Rewriter](docs/rewriter.md) | Viết lại truyện bằng AI, fallback chain | `rewriter.py` |
 | [Chapter Rewriter](docs/chapter_rewriter.md) | Rewrite lại chapters/*.json đã có (in-place + backup) | `chapter_rewriter.py` |
-| [Social Publisher](docs/social_publisher.md) | Chia sẻ truyện lên Telegram/Discord/X tự động | `social_publisher.py` |
 | [DOCX Exporter](docs/docx_exporter.md) | Xuất file Word (.docx) | `docx_exporter.py` |
 | [SEO Analyzer](docs/seo_analyzer.md) | Tiêu đề YouTube, mô tả, hashtag, tags website | `seo_analyzer.py` |
 | [Image Generator](docs/image_generator.md) | Tạo 30 ảnh thumbnail 16:9 bằng FLUX | `image_generator.py`, `hf_image.py` |
@@ -167,10 +166,6 @@ python run.py --review-all                        # wrap §2 cho tất cả truy
 python audit_indexable.py                         # audit content mỏng / chưa wrap
 python run.py --sync-wrappers                     # đẩy wrapper local → pi4 qua HTTP
 
-# ── Chia sẻ truyện lên MXH ────────────────────────────────────
-python run.py --social-publish docx_output/YYYY-MM-DD/ten-truyen --social-dry-run
-python run.py --social-publish docx_output/YYYY-MM-DD/ten-truyen --social-only telegram,discord
-
 # ── Database ──────────────────────────────────────────────────
 python run.py --db-list
 python run.py --db-delete "tên truyện"
@@ -194,7 +189,6 @@ python organize.py --apply
 | `scraper.py` | Lấy nội dung truyện từ website | [Scraper](docs/scraper.md) |
 | `rewriter.py` | Viết lại truyện bằng AI | [Rewriter](docs/rewriter.md) |
 | `chapter_rewriter.py` | Rewrite lại chapters/*.json đã có | [Chapter Rewriter](docs/chapter_rewriter.md) |
-| `social_publisher.py` | Đăng truyện lên Telegram/Discord/X | [Social Publisher](docs/social_publisher.md) |
 | `docx_exporter.py` | Xuất file Word (.docx) | [DOCX](docs/docx_exporter.md) |
 | `seo_analyzer.py` | Tạo SEO YouTube + tags website | [SEO](docs/seo_analyzer.md) |
 | `image_generator.py` | Tạo 30 ảnh thumbnail | [Images](docs/image_generator.md) |

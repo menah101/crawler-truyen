@@ -909,10 +909,17 @@ def crawl_novel(url, source_name=DEFAULT_SOURCE, max_chapters=0, conn=None, chap
         stats['chapters_new'] += 1
         logger.info(f"    ✅ Ch.{ch_num} ({len(content)} ký tự)")
 
+        # Checkpoint commit mỗi 10 chương — crash giữa chừng vẫn còn batch trước.
+        if stats['chapters_new'] % 10 == 0:
+            conn.commit()
+
         if DOCX_EXPORT_ENABLED:
             chapters_for_docx.append({'number': ch_num,
                                       'title': f'Chương {ch_num}',
                                       'content': content})
+
+    # Commit phần còn lại sau loop
+    conn.commit()
 
     # DOCX export (local mode)
     docx_paths = []
@@ -1233,18 +1240,6 @@ if __name__ == '__main__':
                    help='Chỉ sync wrapper của novel có slug LIKE keyword')
     p.add_argument('--sync-wrappers-dry-run', action='store_true',
                    help='Dùng cùng --sync-wrappers*: in payload không gọi API')
-    p.add_argument('--social-publish', type=str, metavar='NOVEL_DIR',
-                   help='Chia sẻ truyện lên Telegram/Discord/X. VD: --social-publish docx_output/2026-04-19/ten-truyen')
-    p.add_argument('--social-only', type=str, default='',
-                   help='Dùng cùng --social-publish: chỉ đăng lên các adapter cụ thể (VD: --social-only telegram,discord)')
-    p.add_argument('--social-dry-run', action='store_true',
-                   help='Dùng cùng --social-publish: preview không đăng thật')
-    p.add_argument('--social-watch', action='store_true',
-                   help='Auto-quét DB, đăng truyện mới publish lên các MXH đã cấu hình (chạy 1 lần)')
-    p.add_argument('--social-watch-daemon', type=int, metavar='SECONDS',
-                   help='Daemon watcher, poll mỗi N giây. VD: --social-watch-daemon 300')
-    p.add_argument('--social-watch-hours', type=int, default=48,
-                   help='Watcher chỉ xét truyện publish trong N giờ qua (mặc định: 48)')
     p.add_argument('--from-dir', type=str, metavar='NOVEL_DIR',
                    help='Tạo Shorts/Thumbnail từ thư mục truyện đã có (chapters/*.json). Dùng kèm --shorts và/hoặc --images. VD: --from-dir docx_output/2026-03-26/ten-truyen --shorts --images')
     p.add_argument('--shorts-seo', type=str, metavar='SHORTS_DIR',
@@ -1401,57 +1396,6 @@ if __name__ == '__main__':
         else:
             print("❌ Không tạo được cover")
         sys.exit(0)
-
-    # ── Social watcher (auto-quét DB + đăng MXH) ─────────────────
-    if args.social_watch or args.social_watch_daemon:
-        from social_watcher import watch_once, watch_forever
-
-        only = [x.strip() for x in args.social_only.split(',') if x.strip()] or None
-
-        if args.social_watch_daemon:
-            watch_forever(
-                interval=args.social_watch_daemon,
-                hours=args.social_watch_hours,
-                only=only,
-            )
-        else:
-            results = watch_once(
-                hours=args.social_watch_hours,
-                only=only,
-                dry_run=args.social_dry_run,
-            )
-            print(f"📊 Đã xử lý {len(results)} truyện")
-        sys.exit(0)
-
-    # ── Social publish (Telegram/Discord/X từ thư mục truyện) ────
-    if args.social_publish:
-        from social_publisher import payload_from_novel_dir, publish_to_all
-
-        payload = payload_from_novel_dir(args.social_publish)
-        only = [x.strip() for x in args.social_only.split(',') if x.strip()] or None
-
-        print(f"📣 Đăng truyện: {payload.title}")
-        print(f"   URL  : {payload.url}")
-        print(f"   Cover: {payload.cover_path or '(none)'}")
-        print()
-
-        results = publish_to_all(payload, only=only, dry_run=args.social_dry_run)
-
-        print()
-        print("📊 Kết quả:")
-        any_fail = False
-        for name, r in results.items():
-            icon = '✅' if r.get('ok') else ('⏭️' if r.get('skipped') else '❌')
-            extra = ''
-            if r.get('dry_run'):
-                extra = ' (dry run)'
-            elif r.get('error'):
-                extra = f' — {r["error"][:80]}'
-                any_fail = True
-            elif r.get('reason'):
-                extra = f' — {r["reason"]}'
-            print(f'   {icon} {name}{extra}')
-        sys.exit(1 if any_fail else 0)
 
     # ── Rewrite from dir (chapters/*.json, không cần DB) ─────────
     if args.rewrite_from_dir:

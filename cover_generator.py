@@ -681,12 +681,10 @@ def generate_cover(
         os.makedirs(novel_dir, exist_ok=True)
         output_path = os.path.join(novel_dir, 'cover.jpg')
 
-    # Đảm bảo thư mục tồn tại
-    import os
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-    with open(output_path, 'wb') as f:
-        f.write(img_bytes)
+    # Atomic write: tránh half-written file khi crash, vì resume logic dùng
+    # os.path.exists để skip — file rỗng/corrupt sẽ bị skip mãi.
+    from _io_utils import atomic_write_bytes
+    atomic_write_bytes(output_path, img_bytes)
 
     logger.info(f"  ✅ Cover đã lưu: {output_path}")
     return output_path

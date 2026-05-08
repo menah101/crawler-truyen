@@ -3,6 +3,7 @@ Dịch văn bản Anh → Việt sử dụng cùng provider với rewriter.
 Ưu tiên: Gemini → Anthropic → DeepSeek → Groq → Ollama → local (từ điển đơn giản).
 """
 
+import re
 import time
 import logging
 
@@ -265,9 +266,10 @@ def translate_novel_info(title: str, author: str, description: str) -> dict:
 
     # Extract JSON from response
     try:
-        # Strip markdown code fences if any
-        clean = result_text.strip().strip("```json").strip("```").strip()
-        data = json.loads(clean)
+        # Strip markdown code fences if any (regex, not str.strip — str.strip strips
+        # by char set, which would chew off legitimate JSON characters like 'j','s','o','n').
+        clean = re.sub(r'^\s*```(?:json)?\s*|\s*```\s*$', '', result_text.strip(), flags=re.MULTILINE)
+        data = json.loads(clean.strip())
         return {
             "title": data.get("title", title),
             "author": data.get("author", author),

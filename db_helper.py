@@ -167,7 +167,10 @@ def insert_novel(conn, title, author, description, genres, tags="", status="comp
     return novel_id, slug
 
 
-def insert_chapter(conn, novel_id, number, title, content, chapter_index=0, total_chapters=1):
+def insert_chapter(conn, novel_id, number, title, content, chapter_index=0, total_chapters=1, commit=False):
+    """Insert chapter. Caller nên commit batch ngoài vòng lặp (đặt commit=False)
+    để tránh fsync mỗi chương — nhanh hơn và atomic per-batch.
+    """
     content = clean_text(content)
     title = clean_text(title)
     chapter_id = generate_cuid()
@@ -183,7 +186,8 @@ def insert_chapter(conn, novel_id, number, title, content, chapter_index=0, tota
     """, (chapter_id, number, title, content, len(content.split()), novel_id, view_count, now, now))
 
     conn.execute("UPDATE Novel SET updatedAt = ? WHERE id = ?", (now, novel_id))
-    conn.commit()
+    if commit:
+        conn.commit()
     return chapter_id
 
 

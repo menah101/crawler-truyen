@@ -18,7 +18,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 PROD_API_BASE_URL="${PROD_API_BASE_URL:-https://hongtrantruyen.net}"
-PROD_IMPORT_SECRET="${PROD_IMPORT_SECRET:-@tsp-company}"
+PROD_IMPORT_SECRET="${PROD_IMPORT_SECRET:-}"
+if [[ -z "$PROD_IMPORT_SECRET" ]]; then
+  printf "\033[1;31m✗\033[0m PROD_IMPORT_SECRET chưa set. Export trong shell hoặc .env trước khi gọi script.\n" >&2
+  exit 2
+fi
 
 DRY_RUN=0
 SLUG_FILTER=""

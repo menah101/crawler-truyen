@@ -27,9 +27,12 @@ class ScraperRegistry:
     @classmethod
     def get_by_url(cls, url):
         """Trả về instance scraper phù hợp với URL, hoặc None."""
-        domain = urlparse(url).netloc.lower().lstrip('www.')
+        domain = urlparse(url).netloc.lower().removeprefix('www.')
         for registered, klass in cls._scrapers.items():
-            if registered in domain or domain in registered:
+            reg = registered.removeprefix('www.')
+            # So khớp chính xác hoặc khớp suffix với dấu `.` ở ranh giới
+            # để tránh spoof kiểu xtruyenfull.iohacker.com match truyenfull.io.
+            if domain == reg or domain.endswith('.' + reg) or reg.endswith('.' + domain):
                 return klass()
         return None
 

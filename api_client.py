@@ -35,11 +35,16 @@ def import_novel(novel_data: dict, chapters: list, *, replace_chapters: bool = F
         )
 
     from config import API_BASE_URL, API_SECRET
+    from _http_utils import make_session, warn_if_insecure_url
 
     if not API_BASE_URL:
         raise RuntimeError("❌ API_BASE_URL chưa được cấu hình trong config.py")
     if not API_SECRET:
         raise RuntimeError("❌ API_SECRET chưa được cấu hình trong config.py")
+
+    warning = warn_if_insecure_url(API_BASE_URL, secret_present=True)
+    if warning:
+        logger.warning(warning)
 
     endpoint = f"{API_BASE_URL.rstrip('/')}/api/admin/import"
     payload  = {
@@ -50,8 +55,9 @@ def import_novel(novel_data: dict, chapters: list, *, replace_chapters: bool = F
 
     logger.debug(f"   → POST {endpoint}  ({len(chapters)} chương)")
 
+    session = make_session()
     try:
-        resp = requests.post(
+        resp = session.post(
             endpoint,
             json=payload,
             headers={
@@ -62,10 +68,10 @@ def import_novel(novel_data: dict, chapters: list, *, replace_chapters: bool = F
         )
     except requests.exceptions.ConnectionError as exc:
         raise RuntimeError(
-            f"❌ Không kết nối được tới {endpoint}\n   {exc}"
+            f"❌ Không kết nối được tới {endpoint} (đã retry)\n   {type(exc).__name__}"
         ) from exc
     except requests.exceptions.Timeout:
-        raise RuntimeError(f"❌ Timeout kết nối tới {endpoint} (>120s)")
+        raise RuntimeError(f"❌ Timeout kết nối tới {endpoint} (>120s, đã retry)")
 
     if resp.status_code == 401:
         raise RuntimeError(
@@ -109,31 +115,44 @@ def upload_chapter_audio(slug: str, chapter_number: int, mp3_path) -> dict:
 
     from pathlib import Path
     from config import API_BASE_URL, API_SECRET
+    from _http_utils import make_session, warn_if_insecure_url
 
     if not API_BASE_URL:
         raise RuntimeError("❌ API_BASE_URL chưa được cấu hình")
     if not API_SECRET:
         raise RuntimeError("❌ API_SECRET chưa được cấu hình")
 
+    warning = warn_if_insecure_url(API_BASE_URL, secret_present=True)
+    if warning:
+        logger.warning(warning)
+
     p = Path(mp3_path)
     if not p.is_file():
         raise FileNotFoundError(f"Không tìm thấy MP3: {p}")
 
+    # Cảnh báo file lớn — Cloudflare default 100MB body limit.
+    size_mb = p.stat().st_size / 1024 / 1024
+    if size_mb > 100:
+        raise RuntimeError(f"❌ MP3 quá lớn ({size_mb:.1f}MB) — Cloudflare giới hạn ~100MB")
+    if size_mb > 50:
+        logger.warning(f"⚠️ MP3 lớn ({size_mb:.1f}MB) — upload có thể chậm")
+
     endpoint = f"{API_BASE_URL.rstrip('/')}/api/admin/upload-audio"
 
+    session = make_session()
     with p.open("rb") as f:
         files = {"file": (p.name, f, "audio/mpeg")}
         data  = {"slug": slug, "chapterNumber": str(chapter_number)}
         try:
-            resp = requests.post(
+            resp = session.post(
                 endpoint, files=files, data=data,
                 headers={"X-Import-Secret": API_SECRET},
                 timeout=180,
             )
         except requests.exceptions.ConnectionError as exc:
-            raise RuntimeError(f"❌ Không kết nối được tới {endpoint}\n   {exc}") from exc
+            raise RuntimeError(f"❌ Không kết nối được tới {endpoint} (đã retry)\n   {type(exc).__name__}") from exc
         except requests.exceptions.Timeout:
-            raise RuntimeError(f"❌ Timeout upload {p.name} (>180s)")
+            raise RuntimeError(f"❌ Timeout upload {p.name} (>180s, đã retry)")
 
     if resp.status_code == 401:
         raise RuntimeError("❌ 401 — kiểm tra IMPORT_SECRET ở local + .env trên pi4")

@@ -106,11 +106,17 @@ def push_batch(novels: list[dict], chapters: list[dict], *,
         return {"dryRun": True, "novels": len(novels), "chapters": len(chapters)}
 
     try:
-        import requests
+        import requests  # noqa: F401  (kept for ImportError surface)
     except ImportError:
         raise RuntimeError("❌ Thiếu 'requests'. Chạy: pip install requests")
 
-    resp = requests.post(
+    from _http_utils import make_session, warn_if_insecure_url
+    warning = warn_if_insecure_url(API_BASE_URL, secret_present=True)
+    if warning:
+        print(warning)
+
+    session = make_session()
+    resp = session.post(
         endpoint,
         json=payload,
         headers={
@@ -124,7 +130,8 @@ def push_batch(novels: list[dict], chapters: list[dict], *,
             "❌ Sai IMPORT_SECRET — kiểm tra .env local và .env.local trên pi4"
         )
     if not resp.ok:
-        raise RuntimeError(f"❌ {resp.status_code} {resp.text[:300]}")
+        # Không log response body — có thể chứa echo payload/secret.
+        raise RuntimeError(f"❌ HTTP {resp.status_code} từ {endpoint}")
     return resp.json()
 
 

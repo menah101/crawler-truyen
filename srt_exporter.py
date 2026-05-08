@@ -34,33 +34,34 @@ def docx_text_to_srt(
     text: str,
     output_file: str,
     duration_per_line: float = 20.0,
-    words_per_second: float = 0.25,
+    words_per_second: float = 3.0,
 ) -> None:
-    """Chuyen chuoi van ban thanh file SRT."""
+    """Chuyen chuoi van ban thanh file SRT.
+
+    `words_per_second=3.0` khop voi toc do TTS tieng Viet (Edge TTS ~ 2.5-3.5 wps).
+    """
     words_per_chunk = max(1, int(duration_per_line * words_per_second))
     chunks = _split_into_chunks(text, words_per_chunk)
 
-    out_dir = os.path.dirname(os.path.abspath(output_file))
-    os.makedirs(out_dir, exist_ok=True)
-
+    lines = []
     current_time = 0.0
-    with open(output_file, 'w', encoding='utf-8') as f:
-        for idx, chunk in enumerate(chunks, start=1):
-            word_count = len(chunk.split())
-            duration   = word_count / words_per_second
-            start      = current_time
-            end        = current_time + duration
-            f.write(f"{idx}\n")
-            f.write(f"{_format_time(start)} --> {_format_time(end)}\n")
-            f.write(f"{chunk}\n\n")
-            current_time = end
+    for idx, chunk in enumerate(chunks, start=1):
+        word_count = len(chunk.split())
+        duration   = word_count / words_per_second
+        start      = current_time
+        end        = current_time + duration
+        lines.append(f"{idx}\n{_format_time(start)} --> {_format_time(end)}\n{chunk}\n\n")
+        current_time = end
+
+    from _io_utils import atomic_write_text
+    atomic_write_text(output_file, "".join(lines))
 
 
 def convert_docx_to_srt(
     input_file: str,
     output_file: str,
     duration_per_line: float = 20.0,
-    words_per_second: float = 0.25,
+    words_per_second: float = 3.0,
 ) -> bool:
     """
     Chuyen file DOCX sang SRT. Tra ve True neu thanh cong.

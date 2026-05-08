@@ -51,7 +51,7 @@ def _get_audio_duration(mp3_path: str) -> float:
          "-show_entries", "format=duration",
          "-of", "default=noprint_wrappers=1:nokey=1",
          mp3_path],
-        capture_output=True, text=True,
+        capture_output=True, text=True, timeout=30,
     )
     try:
         return float(result.stdout.strip())
@@ -72,7 +72,7 @@ def _probe_image_size(img_path: str) -> tuple[int, int]:
         ["ffprobe", "-v", "error", "-select_streams", "v:0",
          "-show_entries", "stream=width,height",
          "-of", "csv=p=0", img_path],
-        capture_output=True, text=True,
+        capture_output=True, text=True, timeout=30,
     )
     try:
         w, h = map(int, probe.stdout.strip().split(","))
@@ -85,6 +85,15 @@ def _slugify(text: str) -> str:
     text = text.lower()
     text = re.sub(r'[^\w\s-]', '', text)
     return re.sub(r'[\s_]+', '-', text).strip('-')[:60]
+
+
+def _concat_escape(path: str) -> str:
+    """Escape filepath cho ffmpeg concat demuxer (single-quoted line).
+
+    Trong concat demuxer, single-quote phải đóng-escape-mở: `'\\''`.
+    Backslash literal cũng phải double-escape vì demuxer parse 2 lớp.
+    """
+    return path.replace("\\", "\\\\").replace("'", "'\\''")
 
 
 def _calc_output_size(w_orig: int, h_orig: int, target_w: int) -> tuple[int, int]:
@@ -176,12 +185,20 @@ def _build_zoompan(z_expr: str, out_w: int, out_h: int, d: int = 1) -> str:
     )
 
 
-def _run_ffmpeg(cmd: list[str], concat_path: str | None = None):
-    """Chạy ffmpeg, xoá file temp (nếu có), in lỗi nếu thất bại."""
+def _run_ffmpeg(cmd: list[str], concat_path: str | None = None, timeout: int = 3600):
+    """Chạy ffmpeg với timeout (mặc định 1h), xoá file temp, in lỗi nếu thất bại."""
     print("🎬 Đang render... (có thể mất vài phút)\n")
     # nice 10: hạ ưu tiên CPU để máy không bị nóng khi có tác vụ khác
     nice_cmd = ["nice", "-n", "10"] + cmd
-    result = subprocess.run(nice_cmd, capture_output=True, text=True)
+    try:
+        result = subprocess.run(nice_cmd, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired as e:
+        if concat_path and os.path.exists(concat_path):
+            os.unlink(concat_path)
+        print(f"❌ ffmpeg timeout sau {timeout}s — có thể bị deadlock pipe.")
+        if e.stderr:
+            print(e.stderr[-3000:] if isinstance(e.stderr, str) else e.stderr.decode("utf-8", "replace")[-3000:])
+        sys.exit(1)
     if concat_path and os.path.exists(concat_path):
         os.unlink(concat_path)
     if result.returncode != 0:
@@ -323,9 +340,9 @@ def merge_shorts(shorts_dir: str, mp3_path: str, output_path: str,
             concat_path = f.name
             for i, sc in enumerate(scenes):
                 dur = per_dur + (0.5 if i == n - 1 else 0.0)
-                f.write(f"file '{sc['image']}'\n")
+                f.write(f"file '{_concat_escape(sc['image'])}'\n")
                 f.write(f"duration {dur:.4f}\n")
-            f.write(f"file '{scenes[-1]['image']}'\n")
+            f.write(f"file '{_concat_escape(scenes[-1]['image'])}'\n")
 
         vf = _build_scale_filter(out_w, out_h)
         cmd = [
@@ -483,7 +500,13 @@ def overlay_label(video_path: str, label_dir: str = _LABEL_DIR_SHORT) -> bool:
         tmp_path,
     ]
 
-    result = subprocess.run(["nice", "-n", "10"] + cmd, capture_output=True, text=True)
+    try:
+        result = subprocess.run(["nice", "-n", "10"] + cmd, capture_output=True, text=True, timeout=1800)
+    except subprocess.TimeoutExpired:
+        print("❌ overlay_label ffmpeg timeout")
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        return False
     if result.returncode != 0:
         print(f"❌ overlay_label ffmpeg lỗi:\n{result.stderr[-2000:]}")
         if os.path.exists(tmp_path):
@@ -555,7 +578,13 @@ def mux_subtitle(video_path: str, srt_path: str) -> bool:
         "-movflags", "+faststart",
         tmp_path,
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+    except subprocess.TimeoutExpired:
+        print("❌ mux_subtitle ffmpeg timeout")
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        return False
     if result.returncode != 0:
         print(f"❌ mux_subtitle lỗi:\n{result.stderr[-2000:]}")
         if os.path.exists(tmp_path):
@@ -623,7 +652,7 @@ def merge_long(novel_dir: str, mp3_path: str, output_path: str,
                                     delete=False, encoding="utf-8") as f:
         concat_path = f.name
         for i, img in enumerate(looped):
-            f.write(f"file '{img}'\n")
+            f.write(f"file '{_concat_escape(img)}'\n")
             if i < len(looped) - 1:
                 f.write(f"duration {per_image_sec:.4f}\n")
 

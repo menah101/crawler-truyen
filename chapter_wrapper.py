@@ -29,6 +29,7 @@ import os
 import re
 import sys
 import time
+import unicodedata
 from typing import Optional
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -74,7 +75,7 @@ def _has_cjk(s: str) -> bool:
 
 def _excerpt(content: str, max_chars: int = 2500) -> str:
     """Lấy đoạn đầu + đoạn cuối chương để LLM nắm đủ bối cảnh mà không tốn context."""
-    content = (content or '').strip()
+    content = unicodedata.normalize("NFC", (content or '').strip())
     if len(content) <= max_chars:
         return content
     head = content[: max_chars // 2]
